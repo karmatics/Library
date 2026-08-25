@@ -1,0 +1,11 @@
+{
+  "name": "Library",
+  "version": "1.1.0",
+  "description": "Central shared module repository for Luno workspace applications",
+  "type": "shared-library",
+  "main": [
+    "DomBasics.js",
+    "LunoDialog.js",
+    "UITools.js"
+  ]
+}

@@ -1,0 +1,110 @@
+/**
+ * 📚 LUNO SHARED LIBRARY: DomBasics.js
+ * Foundational DOM creation & dynamic stylesheet management primitives.
+ */
+
+/**
+ * ⚙️ FUNCTION: makeElement(tag, attrs, ...children)
+ * Recursive DOM & SVG element builder with property binding and array flattening.
+ */
+function makeElement(type, ...args) {
+  let el;
+  const isSvg = typeof type === 'string' && (type.startsWith('svg:') || type === 'svg');
+
+  if (isSvg) {
+    const tag = type.startsWith('svg:') ? type.slice(4) : type;
+    el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  } else {
+    el = document.createElement(type || 'div');
+  }
+
+  const handleArg = (arg) => {
+    if (arg === null || arg === undefined) return;
+
+    if (Array.isArray(arg)) {
+      arg.forEach(handleArg);
+      return;
+    }
+
+    if (typeof arg === 'string' || typeof arg === 'number') {
+      el.appendChild(document.createTextNode(String(arg)));
+      return;
+    }
+
+    if (arg instanceof Node) {
+      el.appendChild(arg);
+      return;
+    }
+
+    if (typeof arg === 'object') {
+      for (const [key, val] of Object.entries(arg)) {
+        if (val === null || val === undefined) continue;
+
+        if (key.startsWith('on') && typeof val === 'function') {
+          const evtName = key.slice(2).toLowerCase();
+          el.addEventListener(evtName, val);
+        } else if (key === 'style') {
+          if (typeof val === 'object') {
+            Object.assign(el.style, val);
+          } else {
+            el.style.cssText = String(val);
+          }
+        } else if (key === 'className' || key === 'class') {
+          if (isSvg) {
+            el.setAttribute('class', String(val));
+          } else {
+            el.className = String(val);
+          }
+        } else if (key === 'innerHTML') {
+          el.innerHTML = String(val);
+        } else if (key === 'textContent') {
+          el.textContent = String(val);
+        } else if (key in el && !isSvg) {
+          try {
+            el[key] = val;
+          } catch (e) {
+            el.setAttribute(key, String(val));
+          }
+        } else {
+          el.setAttribute(key, String(val));
+        }
+      }
+    }
+  };
+
+  args.forEach(handleArg);
+  return el;
+}
+
+/**
+ * ⚙️ FUNCTION: applyCss(cssString, id, doc)
+ * Injects or hot-replaces dynamic stylesheet in document head.
+ */
+function applyCss(cssString, id, targetDoc) {
+  const doc = targetDoc || (typeof document !== 'undefined' ? document : null);
+  if (!doc || !doc.head) return null;
+
+  const styleId = id || ('luno-style-' + Math.random().toString(36).slice(2, 9));
+  let styleEl = doc.getElementById(styleId);
+
+  if (!styleEl) {
+    styleEl = doc.createElement('style');
+    styleEl.id = styleId;
+    doc.head.appendChild(styleEl);
+  }
+
+  styleEl.textContent = cssString || '';
+  return styleEl;
+}
+
+globalThis.makeElement = makeElement;
+globalThis.applyCss = applyCss;
+
+if (typeof window !== 'undefined') {
+  window.makeElement = makeElement;
+  window.applyCss = applyCss;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { makeElement, applyCss };
+}
