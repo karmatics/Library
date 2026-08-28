@@ -1,7 +1,18 @@
-class LunoLoader {
+var LunoLoader = globalThis.LunoLoader = class LunoLoader {
   constructor() {}
 
-  static loadedScripts = new Set();
+  static loadedScripts = new Set([
+    'LunoLoader.js',
+    '/app/LunoLoader.js',
+    './app/LunoLoader.js',
+    '/Luno/app/LunoLoader.js',
+    'Luno/app/LunoLoader.js',
+    '/Library/LunoLoader.js',
+    './Library/LunoLoader.js',
+    './library/LunoLoader.js',
+    'Library/LunoLoader.js',
+    'library/LunoLoader.js'
+  ]);
   static loadedStyles = new Set();
 
   static isStaticHosting() {
@@ -16,7 +27,7 @@ class LunoLoader {
 
   static getLibraryRoot() {
     if (LunoLoader.isStaticHosting()) {
-      return './Library/';
+      return './library/';
     }
     return '/Library/';
   }
@@ -46,22 +57,37 @@ class LunoLoader {
       if (!fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
         fullUrl = isStatic ? (jsPath.startsWith('/') ? ('.' + jsPath) : jsPath) : (jsPath.startsWith('/') ? jsPath : ('/' + jsPath));
       }
-      if (LunoLoader.loadedScripts.has(fullUrl)) return resolve({ url: fullUrl, cached: true });
+
+      var cleanName = jsPath.split('?')[0].split('/').pop();
+      if (cleanName === 'LunoLoader.js' && typeof globalThis.LunoLoader !== 'undefined') {
+        LunoLoader.loadedScripts.add(fullUrl);
+        return resolve({ url: fullUrl, cached: true });
+      }
+
+      if (LunoLoader.loadedScripts.has(fullUrl) || LunoLoader.loadedScripts.has(jsPath)) {
+        return resolve({ url: fullUrl, cached: true });
+      }
 
       var script = document.createElement('script');
       script.src = fullUrl + (fullUrl.indexOf('?') === -1 ? '?v=' : '&v=') + Date.now();
       script.async = false;
-      script.onload = function() { LunoLoader.loadedScripts.add(fullUrl); resolve({ url: fullUrl, cached: false }); };
-      script.onerror = function() { reject(new Error('Failed to load script: ' + jsPath)); };
+      script.onload = function() {
+        LunoLoader.loadedScripts.add(fullUrl);
+        LunoLoader.loadedScripts.add(jsPath);
+        resolve({ url: fullUrl, cached: false });
+      };
+      script.onerror = function() {
+        reject(new Error('Failed to load script: ' + jsPath));
+      };
       document.head.appendChild(script);
     });
   }
 
-  /**
-   * ⚙️ METHOD: applyPatchLog(projectName)
-   * Plays back LunoPatchLog.html on refresh with visible telemetry reporting.
-   */
   static async applyPatchLog(projectName) {
+    if (LunoLoader.isStaticHosting()) {
+      return { appliedCount: 0, note: 'Static hosting mode' };
+    }
+
     try {
       var targetProj = projectName || 'Luno';
       var res = await fetch('/api/fs/read?path=LunoPatchLog.html&project=' + encodeURIComponent(targetProj) + '&v=' + Date.now());
@@ -85,7 +111,6 @@ class LunoLoader {
 
         if (!isForTarget) continue;
 
-        // 1. Class Method Patch Playback
         if (f.methodSpec && f.content) {
           var spec = f.methodSpec.replace(/^(?:globalThis|window)\./, '').trim();
           var isProto = spec.includes('.prototype.');
@@ -116,41 +141,16 @@ class LunoLoader {
           var paramsAndBody = (parenIdx !== -1) ? cleanBody.slice(parenIdx) : ('() ' + cleanBody);
 
           var fnExpr = (isAsync ? 'async function' : 'function') + paramsAndBody;
-
           var targetObj = isProto ? (globalThis[className] && globalThis[className].prototype) : globalThis[className];
           if (targetObj) {
             try {
               var evalFn = new Function('return (' + fnExpr + ');')();
               targetObj[memberName] = evalFn;
-            } catch(evalErr) {
-              if (typeof LunoPlaybackLogger !== 'undefined') {
-                LunoPlaybackLogger.error('Patch Playback Error', spec + ': ' + evalErr.message);
-              }
-            }
+            } catch(e) {}
           }
-        } 
-        // 2. Full Script Patch Playback
-        else if (f.tagName === 'script' && f.content) {
-          try {
-            var s = document.createElement('script');
-            s.textContent = f.content;
-            document.head.appendChild(s);
-          } catch(e) {}
-        }
-        // 3. Style Patch Playback
-        else if (f.tagName === 'style' && f.content) {
-          try {
-            var st = document.createElement('style');
-            st.textContent = f.content;
-            document.head.appendChild(st);
-          } catch(e) {}
         }
       }
-    } catch(err) {
-      if (typeof LunoPlaybackLogger !== 'undefined') {
-        LunoPlaybackLogger.error('Patch Log Ingestion Error', err.message);
-      }
-    }
+    } catch(err) {}
   }
 
   static async loadApp(containerId) {
@@ -172,14 +172,20 @@ class LunoLoader {
     for (var s = 0; s < styles.length; s++) {
       try { await LunoLoader.loadStyle(styles[s]); } catch(e){}
     }
+
     for (var l = 0; l < libs.length; l++) {
-      try { await LunoLoader.loadScript(libRoot + libs[l].replace(/^Library\//i, '').replace(/^\/+/, '')); } catch(e){}
+      var cleanLib = libs[l].replace(/^Library\//i, '').replace(/^library\//i, '').replace(/^\/+/, '');
+      try { await LunoLoader.loadScript(libRoot + cleanLib); } catch(e){}
     }
+
+    if (typeof DomBasics !== 'undefined' && typeof DomBasics.run === 'function') {
+      DomBasics.run();
+    }
+
     for (var m = 0; m < main.length; m++) {
       try { await LunoLoader.loadScript(main[m]); } catch(e){}
     }
 
-    // Play back all patches from LunoPatchLog.html before running the entrypoint!
     try {
       await LunoLoader.applyPatchLog(lunoMeta.name || 'Luno');
     } catch(e){}
@@ -199,7 +205,6 @@ class LunoLoader {
       }
     }
   }
-}
+};
 
-globalThis.LunoLoader = LunoLoader;
-if (typeof module !== 'undefined' && module.exports) module.exports = LunoLoader;
+if (typeof module !== "undefined" && module.exports) module.exports = LunoLoader;
