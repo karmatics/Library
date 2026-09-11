@@ -2672,3 +2672,6 @@ class UITools {
       UITools._getState().activeCount = Math.max(0, UITools._getState().activeCount - 1);
     }
 }
+globalThis.UITools = UITools;
+if (typeof window !== 'undefined') window.UITools = UITools;
+if (typeof module !== 'undefined' && module.exports) module.exports = UITools;
