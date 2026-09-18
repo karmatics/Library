@@ -33,9 +33,16 @@ class UITools {
   }
 
   static makeDialog(options = {}) {
-    return new UITools({ ...options, _uiMode: 'dialog' });
-  }
-
+      if (typeof globalThis.DialogBox === 'undefined') {
+        globalThis.DialogBox = class DialogBox {
+          constructor(opts) {
+            return UITools.makeDialog(opts);
+          }
+        };
+        if (typeof window !== 'undefined') window.DialogBox = globalThis.DialogBox;
+      }
+      return new UITools({ ...options, _uiMode: 'dialog' });
+    }
   static makeWidget(options = {}) {
     return new UITools({ ...options, _uiMode: 'widget' });
   }
@@ -332,14 +339,12 @@ class UITools {
       // Resolve and prepare inner content element
       if (o.contentElement) {
         this.contentElement = o.contentElement;
-        
-        // Retain original attributes to restore correctly on demote
+
         this._preContentAttributes = Array.from(this.contentElement.attributes).map(attr => ({
           name: attr.name,
           value: attr.value
         }));
 
-        // Wipe attributes completely to clean styles
         while (this.contentElement.attributes.length > 0) {
           this.contentElement.removeAttribute(this.contentElement.attributes[0].name);
         }
@@ -372,27 +377,26 @@ class UITools {
       if (o.titleBarAtBottom) this.element.classList.add('uw-title-bottom');
       if (compact) this.element.classList.add('uw-dialog-compact');
 
-      // Generalized DOM assembly: ensures the title bar (header) sits before the content element
+      // Attach to document.body by default so dialogs can move anywhere across the app window/iframe
+      this.container = (o.constrainToContainer && o.appendTo) ? o.appendTo : document.body;
+
       if (this.contentElement.parentNode !== this.element) {
         this.element.appendChild(this.contentElement);
       }
       this.element.insertBefore(this.header, this.contentElement);
 
-      // Clean up any stale or duplicate headers
       Array.from(this.element.children).forEach(child => {
         if (child.classList.contains('uw-header') && child !== this.header) {
           child.remove();
         }
       });
 
-      // Append resizers and footer securely
       this._sizers.forEach(sizer => {
         if (sizer.parentNode !== this.element) {
           this.element.appendChild(sizer);
         }
       });
 
-      // Build the footer containing buttons if any are defined
       if (o.buttons && o.buttons.length > 0) {
         this._buildFooter();
       }
@@ -434,14 +438,11 @@ class UITools {
 
       this.container.appendChild(this.element);
 
-      if (
-        this.env ||
-        this.container !== document.body ||
-        (this.container &&
-          this.container.className &&
-          this.container.className.includes('vibes'))
-      ) {
+      // Default to fixed positioning so the dialog is free to traverse the entire window/tab/iframe
+      if (o.constrainToContainer && this.container !== document.body) {
         this.element.style.position = 'absolute';
+      } else {
+        this.element.style.position = 'fixed';
       }
 
       this._setupLifecycleObserver();
@@ -461,7 +462,6 @@ class UITools {
         }, 250);
       }
     }
-
   _buildWidgetDocked() {
     const o = this.options;
     const phDot = UITools._el('div', {
@@ -1762,11 +1762,13 @@ class UITools {
       const r = this.element.getBoundingClientRect(),
         vis = 48;
       const s = this._getEffectiveSafeArea();
-      
+
       const parent = this.container;
-      const isBody = (parent === document.body && !this.env);
-      const pRect = isBody ? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight, width: window.innerWidth, height: window.innerHeight } : parent.getBoundingClientRect();
-      
+      const isBody = (parent === document.body || !parent || this.element.style.position === 'fixed');
+      const pRect = isBody
+        ? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight, width: window.innerWidth, height: window.innerHeight }
+        : parent.getBoundingClientRect();
+
       if (!isBody && (pRect.width === 0 || pRect.height === 0)) {
         return;
       }
@@ -1776,31 +1778,31 @@ class UITools {
         changed = false;
 
       // Keep dialog grabbable header strictly inside top limits of viewport
-      const minTop = pRect.top + s.top + 5;
+      const minTop = (isBody ? 0 : pRect.top) + s.top + 4;
       if (r.top < minTop) {
         y = minTop;
         changed = true;
       }
 
       if (r.height > pRect.height) {
-         this.element.style.maxHeight = `${pRect.height - s.top - s.bottom - 10}px`;
-         changed = true;
+        this.element.style.maxHeight = `${pRect.height - s.top - s.bottom - 8}px`;
+        changed = true;
       }
 
-      if (r.right < pRect.left + s.left + vis) {
+      if (r.right < (isBody ? 0 : pRect.left) + s.left + vis) {
         x = s.left + vis - r.width;
         changed = true;
       }
-      if (r.left > pRect.right - s.right - vis) {
-        x = pRect.width - s.right - vis;
+      if (r.left > (isBody ? window.innerWidth : pRect.right) - s.right - vis) {
+        x = (isBody ? window.innerWidth : pRect.width) - s.right - vis;
         changed = true;
       }
-      if (r.bottom < pRect.top + s.top + vis) {
+      if (r.bottom < (isBody ? 0 : pRect.top) + s.top + vis) {
         y = s.top + vis - r.height;
         changed = true;
       }
-      if (r.top > pRect.bottom - s.bottom - vis) {
-        y = pRect.height - s.bottom - vis;
+      if (r.top > (isBody ? window.innerHeight : pRect.bottom) - s.bottom - vis) {
+        y = (isBody ? window.innerHeight : pRect.height) - s.bottom - vis;
         changed = true;
       }
       if (changed) {
@@ -1811,7 +1813,6 @@ class UITools {
         }
       }
     }
-
   _pt(e) {
     if (e.touches?.length)
       return { x: e.touches[0].clientX, y: e.touches[0].clientY };
