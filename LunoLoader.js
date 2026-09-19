@@ -1,330 +1,297 @@
-var LunoLoader = globalThis.LunoLoader = class LunoLoader {
-  constructor() {}
-
-  static loadedScripts = new Set([
-    'LunoLoader.js',
-    '/app/LunoLoader.js',
-    './app/LunoLoader.js',
-    'app/LunoLoader.js',
-    '/Luno/app/LunoLoader.js',
-    'Luno/app/LunoLoader.js',
-    '/Library/LunoLoader.js',
-    './Library/LunoLoader.js',
-    './library/LunoLoader.js',
-    'Library/LunoLoader.js',
-    'library/LunoLoader.js'
-  ]);
-  static loadedStyles = new Set();
-
-  static isLocalNetworkHost(host, port) {
-    if (!host) return false;
-    const h = host.toLowerCase().trim();
-
-    if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '::1' || h === '[::1]') {
-      return true;
-    }
-
-    if (h.startsWith('127.')) return true;
-    if (h.startsWith('192.168.')) return true;
-    if (h.startsWith('10.')) return true;
-    if (h.startsWith('169.254.')) return true;
-
-    // RFC 1918 Class B Private Network / Hotspots: 172.16.0.0 - 172.31.255.255
-    if (h.startsWith('172.')) {
-      const parts = h.split('.');
-      if (parts.length >= 2) {
-        const secondOctet = parseInt(parts[1], 10);
-        if (secondOctet >= 16 && secondOctet <= 31) return true;
-      }
-    }
-
-    if (h.endsWith('.local') || h.endsWith('.lan') || h.endsWith('.home') || h.endsWith('.internal') || h.endsWith('.localhost')) {
-      return true;
-    }
-
-    const devPorts = ['8080', '8081', '8088', '3000', '5000', '8000', '5173'];
-    if (port && devPorts.includes(String(port))) {
-      return true;
-    }
-
-    return false;
-  }
+/**
+ * 📚 LunoLoader.js - Universal Multi-Repo / GitHub Pages Dependency Loader
+ * Resolves shared dependencies across local dev and GitHub Pages deployments with fork fallback:
+ * 1. Local server: /Library/...
+ * 2. User fork: https://<user>.github.io/Library/...
+ * 3. Karmatics root: https://karmatics.github.io/Library/...
+ */
+class LunoLoader {
+  static defaultAccount = 'karmatics';
+  static _libraryBaseUrl = null;
 
   static isStaticHosting() {
     try {
       if (typeof window !== 'undefined' && window.location) {
-        const proto = window.location.protocol || '';
+        var proto = window.location.protocol || '';
         if (proto === 'file:') return true;
-
-        const host = (window.location.hostname || '').toLowerCase();
-        const port = window.location.port || '';
-
-        if (host.endsWith('github.io') || host.endsWith('pages.dev') || host.endsWith('vercel.app') || host.endsWith('netlify.app')) {
-          return true;
-        }
-
-        if (LunoLoader.isLocalNetworkHost(host, port)) {
-          return false;
-        }
-
+        var host = (window.location.hostname || '').toLowerCase();
+        if (host.endsWith('github.io') || host.endsWith('pages.dev') || host.endsWith('vercel.app')) return true;
+        if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.')) return false;
         return true;
       }
-    } catch (e) {}
+    } catch(e) {}
     return false;
   }
 
-  static normalizeScriptPath(rawPath, projectContext) {
-      if (!rawPath || typeof rawPath !== 'string') return '';
-      if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) return rawPath;
+  static getLibraryBaseUrl() {
+      if (LunoLoader._libraryBaseUrl) return LunoLoader._libraryBaseUrl;
 
-      var clean = rawPath.replace(/\\/g, '/').replace(/^\/+/, '').trim();
-      if (clean.startsWith('Luno Workspace/')) clean = clean.slice(15).trim();
-      if (clean.startsWith('./')) clean = clean.slice(2).trim();
+      // 1. Check document.currentScript (valid during sync execution)
+      try {
+        var cs = document.currentScript;
+        if (cs && cs.src && cs.src.includes('LunoLoader.js')) {
+          var idx = cs.src.lastIndexOf('/');
+          if (idx !== -1) {
+            LunoLoader._libraryBaseUrl = cs.src.slice(0, idx + 1);
+            return LunoLoader._libraryBaseUrl;
+          }
+        }
+      } catch (e) {}
 
-      // Sibling shared Library scripts are anchored to /Library/
-      if (clean.startsWith('Library/') || clean.startsWith('library/')) {
-        return '/Library/' + clean.replace(/^(?:Library|library)\//, '');
+      // 2. Scan DOM for script tag containing LunoLoader.js (valid during DOMContentLoaded)
+      try {
+        var sTag = document.querySelector('script[src*="LunoLoader.js"]');
+        if (sTag && sTag.src) {
+          var sIdx = sTag.src.lastIndexOf('/');
+          if (sIdx !== -1) {
+            LunoLoader._libraryBaseUrl = sTag.src.slice(0, sIdx + 1);
+            return LunoLoader._libraryBaseUrl;
+          }
+        }
+      } catch (e) {}
+
+      // 3. Local network hosting
+      if (!LunoLoader.isStaticHosting()) {
+        LunoLoader._libraryBaseUrl = '/Library/';
+        return '/Library/';
       }
 
-      // Project application scripts are resolved relative to the application's base URL
-      var proj = projectContext || (typeof ClientApp !== 'undefined' && ClientApp.getTargetProject ? ClientApp.getTargetProject() : '');
-      if (proj && clean.startsWith(proj + '/')) {
-        clean = clean.slice(proj.length + 1);
-      } else if (clean.startsWith('Luno/')) {
-        clean = clean.slice(5);
-      }
-
-      if (!clean.startsWith('./') && !clean.startsWith('../')) {
-        clean = './' + clean;
-      }
-      return clean;
+      // 4. GitHub Pages hosting
+      var host = (window.location.hostname || '').toLowerCase();
+      var user = host.endsWith('.github.io') ? host.split('.')[0] : LunoLoader.defaultAccount;
+      LunoLoader._libraryBaseUrl = 'https://' + user + '.github.io/Library/';
+      return LunoLoader._libraryBaseUrl;
     }
-  static getLibraryRoot() {
-      // Sibling directory at root level across both local server and GitHub Pages domain
-      return '/Library/';
-    }
-  static loadStyle(cssPath) {
-    return new Promise(function(resolve) {
-      var fullUrl = LunoLoader.normalizeScriptPath(cssPath);
-      if (LunoLoader.loadedStyles.has(fullUrl)) return resolve({ url: fullUrl, cached: true });
+  static resolveLibraryAsset(assetPath) {
+    var clean = (assetPath || '').replace(/^(?:Library|library)\//, '').trim();
+    var primaryBase = LunoLoader.getLibraryBaseUrl();
+    var fallbackBase = 'https://' + LunoLoader.defaultAccount + '.github.io/Library/';
 
-      var link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = fullUrl + (fullUrl.indexOf('?') === -1 ? '?v=' : '&v=') + Date.now();
-      link.onload = function() {
-        LunoLoader.loadedStyles.add(fullUrl);
-        resolve({ url: fullUrl, cached: false });
+    return {
+      cleanName: clean,
+      primaryUrl: primaryBase + clean,
+      fallbackUrl: fallbackBase + clean
+    };
+  }
+
+  static loadScript(url, fallbackUrl) {
+    return new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = url;
+      s.async = false;
+      s.onload = function() { resolve({ success: true, url: url }); };
+      s.onerror = function() {
+        if (fallbackUrl && fallbackUrl !== url) {
+          console.warn('[LunoLoader] Primary load failed for ' + url + ', trying fallback ' + fallbackUrl);
+          var fb = document.createElement('script');
+          fb.src = fallbackUrl;
+          fb.async = false;
+          fb.onload = function() { resolve({ success: true, url: fallbackUrl, fallbackUsed: true }); };
+          fb.onerror = function(err) { reject(new Error('Failed to load script from ' + url + ' and fallback ' + fallbackUrl)); };
+          document.head.appendChild(fb);
+        } else {
+          reject(new Error('Failed to load script from ' + url));
+        }
       };
-      link.onerror = function() {
-        console.warn('[LunoLoader] Optional stylesheet notice:', cssPath);
-        resolve({ url: fullUrl, failed: true });
-      };
-      document.head.appendChild(link);
+      document.head.appendChild(s);
     });
   }
 
-  static loadScript(jsPath, projectContext) {
-      return new Promise(function(resolve, reject) {
-        var fullUrl = LunoLoader.normalizeScriptPath(jsPath, projectContext);
-        var cleanName = jsPath.split('?')[0].split('/').pop();
-
-        if (cleanName === 'LunoLoader.js' && typeof globalThis.LunoLoader !== 'undefined') {
-          LunoLoader.loadedScripts.add(fullUrl);
-          return resolve({ url: fullUrl, cached: true });
-        }
-
-        if (LunoLoader.loadedScripts.has(fullUrl) || LunoLoader.loadedScripts.has(jsPath)) {
-          return resolve({ url: fullUrl, cached: true });
-        }
-
-        var script = document.createElement('script');
-        script.src = fullUrl + (fullUrl.indexOf('?') === -1 ? '?v=' : '&v=') + Date.now();
-        script.async = false;
-        script.onload = function() {
-          LunoLoader.loadedScripts.add(fullUrl);
-          LunoLoader.loadedScripts.add(jsPath);
-          resolve({ url: fullUrl, cached: false });
-        };
-        script.onerror = function() {
-          // Fallback for forks: if /Library/... fails on a third-party domain (e.g. alice.github.io),
-          // automatically load from the canonical upstream shared library hub at karmatics.github.io
-          if (fullUrl.startsWith('/Library/') || fullUrl.includes('/Library/')) {
-            var upstreamUrl = 'https://karmatics.github.io/Library/' + cleanName + '?v=' + Date.now();
-            var upstreamScript = document.createElement('script');
-            upstreamScript.src = upstreamUrl;
-            upstreamScript.async = false;
-            upstreamScript.onload = function() {
-              LunoLoader.loadedScripts.add(fullUrl);
-              LunoLoader.loadedScripts.add(upstreamUrl);
-              resolve({ url: upstreamUrl, fallback: true });
-            };
-            upstreamScript.onerror = function() {
-              reject(new Error('Failed to load library script from /Library/ or upstream karmatics.github.io: ' + cleanName));
-            };
-            document.head.appendChild(upstreamScript);
-            return;
-          }
-
-          var altPath = './app/' + cleanName + '?v=' + Date.now();
-          var altScript = document.createElement('script');
-          altScript.src = altPath;
-          altScript.async = false;
-          altScript.onload = function() {
-            LunoLoader.loadedScripts.add(fullUrl);
-            LunoLoader.loadedScripts.add(jsPath);
-            resolve({ url: altPath, fallback: true });
-          };
-          altScript.onerror = function() {
-            reject(new Error('Failed to load script: ' + fullUrl));
-          };
-          document.head.appendChild(altScript);
-        };
-        document.head.appendChild(script);
-      });
+  static loadStyle(url, fallbackUrl) {
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = url;
+    if (fallbackUrl && fallbackUrl !== url) {
+      link.onerror = function() {
+        link.onerror = null;
+        link.href = fallbackUrl;
+      };
     }
-  static async applyPatchLog(projectName) {
-    try {
-      var targetProj = projectName || (typeof ClientApp !== 'undefined' && ClientApp.getTargetProject ? ClientApp.getTargetProject() : 'Luno');
-      var data = null;
-
-      if (typeof LunoApiClient !== 'undefined' && LunoApiClient.fetchFsRead) {
-        data = await LunoApiClient.fetchFsRead('LunoPatchLog.html', targetProj);
-      } else {
-        var res = await fetch('/api/fs/read?path=LunoPatchLog.html&project=' + encodeURIComponent(targetProj) + '&v=' + Date.now());
-        data = await res.json();
-      }
-
-      if (!data || !data.success || !data.content || !data.content.trim()) {
-        return { appliedCount: 0, note: 'Patch log empty' };
-      }
-
-      var parser = globalThis.LunoPayloadParser || globalThis.LunoContainerParser;
-      if (!parser || typeof parser.parsePatchLog !== 'function') return { appliedCount: 0, error: 'Parser unavailable' };
-
-      var parsed = parser.parsePatchLog(data.content);
-      var files = parsed.files || [];
-      var appliedCount = 0;
-
-      for (var i = 0; i < files.length; i++) {
-        var f = files[i];
-        if (!f || !f.filePath) continue;
-
-        var norm = f.filePath.replace(/\\/g, '/').replace(/^\/+/, '');
-        var isForTarget = (targetProj === 'Luno')
-          ? (norm.startsWith('Luno/') || !norm.includes('/') || norm.startsWith('app/') || norm.startsWith('browser/') || norm.startsWith('core/') || norm.startsWith('docs/') || norm.startsWith('test/'))
-          : (norm.startsWith(targetProj + '/') || norm.startsWith('Library/'));
-
-        if (!isForTarget) continue;
-
-        if (f.methodSpec && f.content) {
-          var spec = f.methodSpec.replace(/^(?:globalThis|window)\./, '').trim();
-          var parts = spec.split('.');
-          var mName = parts.pop();
-          var cName = parts.join('.');
-          var targetClass = globalThis[cName] || (typeof window !== 'undefined' && window[cName]);
-          if (targetClass) {
-            try {
-              var cleanCode = f.content.trim().replace(/^\s*(?:\/\/[^\r\n]*[\r\n]+|\/\*[\s\S]*?\*\/\s*)+/, '').trim();
-              var firstBrace = cleanCode.indexOf('{');
-              var body = firstBrace !== -1 ? cleanCode.slice(firstBrace).trim() : '{ ' + cleanCode + ' }';
-              var isAsync = /\basync\b/.test(cleanCode.slice(0, firstBrace));
-              var fn = new Function('return (' + (isAsync ? 'async function' : 'function') + '() ' + body + ');')();
-              targetClass[mName] = fn;
-              appliedCount++;
-            } catch(e) {}
-          }
-        }
-      }
-
-      return { appliedCount: appliedCount, targetProject: targetProj };
-    } catch(err) {
-      return { appliedCount: 0, error: err.message };
-    }
+    document.head.appendChild(link);
   }
 
-  static async loadApp(containerId) {
-    var targetContainer = typeof containerId === 'string'
-      ? document.getElementById(containerId)
-      : (containerId || document.getElementById('app-root') || document.body);
+  static async loadApp(containerTarget) {
+      var targetEl = typeof containerTarget === 'string'
+        ? document.getElementById(containerTarget)
+        : (containerTarget || document.getElementById('app-container') || document.body);
 
-    var bootStatusEl = document.getElementById('boot-status');
-    var updateBootStatus = function(msg) {
-      if (bootStatusEl) {
-        var p = bootStatusEl.querySelector('p');
-        if (p) p.textContent = msg;
-      }
-    };
-
-    var lunoMeta = {};
-    try {
-      updateBootStatus('Reading luno.json manifest...');
-      var manifestUrl = LunoLoader.isStaticHosting() ? './luno.json' : 'luno.json?v=' + Date.now();
-      var res = await fetch(manifestUrl);
-      if (res.ok) lunoMeta = await res.json();
-    } catch(e) {
-      console.warn('[LunoLoader] Manifest load notice:', e);
-    }
-
-    var projName = lunoMeta.name || 'Luno';
-
-    var libs = Array.isArray(lunoMeta.library) ? lunoMeta.library : [];
-    var main = Array.isArray(lunoMeta.main) ? lunoMeta.main : [];
-    var styles = Array.isArray(lunoMeta.styles) ? lunoMeta.styles : [];
-
-    for (var s = 0; s < styles.length; s++) {
-      await LunoLoader.loadStyle(styles[s]);
-    }
-
-    var libRoot = LunoLoader.getLibraryRoot();
-    for (var l = 0; l < libs.length; l++) {
-      var cleanLib = libs[l].replace(/^Library\//i, '').replace(/^library\//i, '').replace(/^\/+/, '');
-      await LunoLoader.loadScript(libRoot + cleanLib);
-    }
-
-    if (typeof DomBasics !== 'undefined' && typeof DomBasics.run === 'function') {
-      DomBasics.run();
-    }
-
-    for (var m = 0; m < main.length; m++) {
-      var scriptName = main[m].split('/').pop();
-      updateBootStatus('Loading [' + (m + 1) + '/' + main.length + ']: ' + scriptName);
       try {
-        await LunoLoader.loadScript(main[m], projName);
-      } catch (err) {
-        console.error('[LunoLoader] Error loading module:', main[m], err);
-        updateBootStatus('⚠️ Failed to load ' + scriptName + ': ' + err.message);
+        // 1. Fetch luno.json manifest
+        var res = await fetch('./luno.json?v=' + Date.now());
+        if (!res.ok) {
+          throw new Error('Could not load luno.json manifest (HTTP ' + res.status + ')');
+        }
+        var meta = await res.json();
+        var projName = (meta.name || '').trim();
+
+        // 2. Load styles
+        var styles = [].concat(meta.styles || []);
+        for (var s = 0; s < styles.length; s++) {
+          var stylePath = styles[s];
+          if (stylePath.startsWith('Library/') || stylePath.startsWith('library/')) {
+            var asset = LunoLoader.resolveLibraryAsset(stylePath);
+            LunoLoader.loadStyle(asset.primaryUrl, asset.fallbackUrl);
+          } else {
+            var cleanStyle = stylePath.replace(/^\/+/, '');
+            if (projName && cleanStyle.startsWith(projName + '/')) {
+              cleanStyle = cleanStyle.slice(projName.length + 1);
+            }
+            LunoLoader.loadStyle('./' + cleanStyle);
+          }
+        }
+
+        // 3. Load library dependencies with fork-to-karmatics fallback
+        var libs = [].concat(meta.library || []);
+        for (var l = 0; l < libs.length; l++) {
+          var libPath = libs[l];
+          var asset = LunoLoader.resolveLibraryAsset(libPath);
+          await LunoLoader.loadScript(asset.primaryUrl, asset.fallbackUrl);
+        }
+
+        // 4. Load main project scripts (with folder-fallback resilience)
+        var mainScripts = [].concat(meta.main || []);
+        for (var m = 0; m < mainScripts.length; m++) {
+          var scriptPath = mainScripts[m].replace(/^\/+/, '');
+          if (projName && scriptPath.startsWith(projName + '/')) {
+            scriptPath = scriptPath.slice(projName.length + 1);
+          }
+          try {
+            await LunoLoader.loadScript('./' + scriptPath);
+          } catch (scriptErr) {
+            // If script failed and was in app/ or docs/, test alternative directory before failing
+            var parts = scriptPath.split('/');
+            var fileName = parts.pop();
+            var altFolders = ['app', 'docs', 'core', 'browser'];
+            var recovered = false;
+            for (var af = 0; af < altFolders.length; af++) {
+              var altPath = './' + altFolders[af] + '/' + fileName;
+              if (altPath !== ('./' + scriptPath)) {
+                try {
+                  await LunoLoader.loadScript(altPath);
+                  console.warn('[LunoLoader] Recovered misplaced script "' + scriptPath + '" from "' + altPath + '"');
+                  recovered = true;
+                  break;
+                } catch(e) {}
+              }
+            }
+            if (!recovered) {
+              console.error('[LunoLoader] Failed loading non-recoverable script:', scriptPath);
+              throw scriptErr;
+            }
+          }
+        }
+
+        // 5. Apply any pending patches from LunoPatchLog.html if present
+        await LunoLoader.applyPatchLog();
+
+        // 6. Mount application entrypoint
+        var entrypoint = meta.entrypoint || {};
+        var entryClass = entrypoint.class || meta.mainClass || 'App';
+        var entryMethod = entrypoint.method || 'run';
+
+        var TargetClass = globalThis[entryClass];
+        if (!TargetClass) {
+          throw new Error('Entrypoint class [' + entryClass + '] was not found in global scope.');
+        }
+
+        var appInstance = new TargetClass();
+        if (typeof appInstance[entryMethod] === 'function') {
+          await appInstance[entryMethod]({ container: targetEl, meta: meta });
+        } else if (typeof TargetClass[entryMethod] === 'function') {
+          await TargetClass[entryMethod]({ container: targetEl, meta: meta });
+        } else {
+          console.log('[LunoLoader] Instantiated ' + entryClass + ', no run() method to invoke.');
+        }
+
+        console.log('[LunoLoader] Successfully launched [' + (meta.name || entryClass) + '].');
+      } catch(err) {
+        console.error('[LunoLoader Exception]', err);
+        if (targetEl) {
+          targetEl.innerHTML = [
+            '<div style="padding:1.5rem; background:#2c080a; color:#ff7b72; border:2px solid #f85149; border-radius:10px; font-family:monospace; margin:1rem auto; max-width:680px; box-shadow:0 8px 32px rgba(0,0,0,0.8);">',
+            '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">',
+            '    <h3 style="margin:0; color:#ff7b72;">❌ Failed to Launch Application</h3>',
+            '    <span style="font-size:0.72rem; background:#161b22; padding:0.2rem 0.5rem; border-radius:4px; border:1px solid #da3633;">Luno Emergency Cockpit</span>',
+            '  </div>',
+            '  <p style="font-size:0.85rem; margin:0 0 0.75rem 0; color:#c9d1d9;">' + err.message + '</p>',
+            '  <div style="background:#0d1117; border:1px solid #da3633; border-radius:8px; padding:0.75rem; display:flex; flex-direction:column; gap:0.5rem;">',
+            '    <strong style="color:#00f2fe; font-size:0.78rem;">⚡ Emergency Recovery: Paste LLM Payload Fix Below</strong>',
+            '    <textarea id="emergency-recovery-input" placeholder="Paste HTML Container Payload here to apply directly to storage..." style="width:100%; height:110px; background:#070a13; color:#7ee787; border:1px solid #30363d; border-radius:6px; padding:0.5rem; font-family:monospace; font-size:0.75rem; outline:none; box-sizing:border-box; resize:vertical;"></textarea>',
+            '    <div style="display:flex; gap:0.4rem; justify-content:flex-end;">',
+            '      <button id="btn-emergency-paste" style="padding:0.45rem 0.85rem; background:#238636; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:0.78rem; font-family:monospace;">📥 Paste from Clipboard & Apply</button>',
+            '      <button id="btn-emergency-apply" style="padding:0.45rem 0.85rem; background:#8257e5; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:0.78rem; font-family:monospace;">⚡ Apply Payload Text</button>',
+            '    </div>',
+            '  </div>',
+            '</div>'
+          ].join('\n');
+
+          var execEmergency = async function(text) {
+            if (!text || !text.trim()) return;
+            try {
+              var res = await fetch('/api/save?project=' + encodeURIComponent((meta && meta.name) || 'Luno'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rawText: text })
+              });
+              var data = await res.json();
+              if (data && data.success) {
+                location.reload();
+              } else {
+                alert('Save failed: ' + ((data && data.error) || 'Storage error'));
+              }
+            } catch(e) {
+              alert('Save error: ' + e.message);
+            }
+          };
+
+          var btnP = document.getElementById('btn-emergency-paste');
+          if (btnP) {
+            btnP.onclick = async function() {
+              try {
+                var t = await navigator.clipboard.readText();
+                if (t) execEmergency(t);
+              } catch(e) {
+                var inp = document.getElementById('emergency-recovery-input');
+                if (inp && inp.value) execEmergency(inp.value);
+                else alert('Paste code into textarea first.');
+              }
+            };
+          }
+
+          var btnA = document.getElementById('btn-emergency-apply');
+          if (btnA) {
+            btnA.onclick = function() {
+              var inp = document.getElementById('emergency-recovery-input');
+              if (inp && inp.value) execEmergency(inp.value);
+              else alert('Textarea is empty.');
+            };
+          }
+        }
       }
     }
-
+  static async applyPatchLog() {
     try {
-      await LunoLoader.applyPatchLog(projName);
+      var res = await fetch('./LunoPatchLog.html?v=' + Date.now());
+      if (res.ok) {
+        var html = await res.text();
+        if (html && html.trim()) {
+          var div = document.createElement('div');
+          div.innerHTML = html;
+          var scripts = div.querySelectorAll('script');
+          for (var i = 0; i < scripts.length; i++) {
+            var sc = scripts[i];
+            var code = sc.textContent;
+            if (code && code.trim()) {
+              var execScript = document.createElement('script');
+              execScript.textContent = code;
+              document.head.appendChild(execScript);
+            }
+          }
+        }
+      }
     } catch(e) {}
-
-    updateBootStatus('Launching ClientApp...');
-
-    var entryClass = (lunoMeta.entrypoint && lunoMeta.entrypoint.class) || lunoMeta.mainClass || 'ClientApp';
-    var entryMethod = (lunoMeta.entrypoint && lunoMeta.entrypoint.method) || 'init';
-
-    var AppCls = window[entryClass] || globalThis[entryClass];
-    if (typeof AppCls === 'function') {
-      var envCtx = { container: targetContainer, config: lunoMeta, isStatic: LunoLoader.isStaticHosting() };
-      if (typeof AppCls[entryMethod] === 'function') {
-        await AppCls[entryMethod](envCtx);
-      } else {
-        var inst = new AppCls();
-        if (typeof inst[entryMethod] === 'function') await inst[entryMethod](envCtx);
-        else if (typeof inst.run === 'function') await inst.run(envCtx);
-      }
-    } else {
-      if (bootStatusEl) {
-        bootStatusEl.innerHTML = [
-          '<h3 style="color:#ff7b72; margin-top:0;">⚠️ Boot Scope Notice</h3>',
-          '<p style="font-size:12px; color:#c9d1d9;">Could not locate entrypoint class <strong>' + entryClass + '</strong>.</p>',
-          '<button onclick="location.reload()" style="margin-top:0.5rem; padding:0.35rem 0.75rem; background:#238636; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-family:monospace;">🔄 Reload</button>'
-        ].join('\n');
-      }
-    }
   }
-};
+}
 
-if (typeof module !== "undefined" && module.exports) module.exports = LunoLoader;
+globalThis.LunoLoader = LunoLoader;
+if (typeof module !== 'undefined' && module.exports) module.exports = LunoLoader;

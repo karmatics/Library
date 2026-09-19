@@ -2016,9 +2016,9 @@ class UITools {
           .uw-dialog.uw-maximized { border-radius:0!important; border:none!important; box-shadow:none!important; }
           .uw-dialog.uw-maximized .uw-header { cursor:default; }
           .uw-dialog.uw-maximized .uw-corner,
-          .uw-dialog.uw-minimized 
+          .uw-dialog.uw-minimized .uw-corner { display: none !important; }
           .uw-dialog.uw-minimized .uw-content { opacity: 0; pointer-events: none; }
-          
+
           .uw-dialog.uw-minimized .fp-search-wrapper { display: none !important; }
           .uw-dialog.uw-minimized .uw-title { display: block !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -2027,6 +2027,8 @@ class UITools {
             padding: 4px 8px; min-height: 28px; flex-shrink: 0;
             background: var(--uw-hdr-bg); border-bottom: 1px solid var(--uw-border);
             border-radius: 12px 12px 0 0; cursor: move; user-select: none; touch-action: none;
+            position: relative;
+            z-index: 40;
           }
           .uw-header-compact { padding: 2px 6px !important; min-height: 22px !important; }
           .uw-title {
@@ -2035,21 +2037,34 @@ class UITools {
             letter-spacing: 0.02em; text-transform: uppercase;
           }
 
-          .uw-controls { display:flex; align-items:center; gap:2px; flex-shrink:0; }
+          /* Controls have high z-index stacking to guarantee clicks reach the close button */
+          .uw-controls { 
+            display: flex; 
+            align-items: center; 
+            gap: 2px; 
+            flex-shrink: 0; 
+            position: relative;
+            z-index: 100 !important;
+            pointer-events: auto !important;
+          }
           .uw-util-btn, .uw-close-btn {
             background: none; border: none; cursor: pointer; color: var(--uw-title);
-            width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
-            border-radius: 4px; font-size: 10px; padding: 0; transition: all 0.12s; touch-action: manipulation;
+            width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+            border-radius: 4px; font-size: 11px; padding: 0; transition: all 0.12s; touch-action: manipulation;
+            position: relative;
+            z-index: 100 !important;
+            pointer-events: auto !important;
           }
           .uw-util-btn:hover { background: var(--uw-btn-hover); color: var(--uw-text); }
-          .uw-close-btn:hover { background: #e53935; color: #fff; }
+          .uw-close-btn { color: rgba(255,255,255,0.7); }
+          .uw-close-btn:hover { background: #e53935 !important; color: #ffffff !important; }
 
           .uw-content {
             position: relative;
             padding: 14px; flex-grow: 1; overflow: auto; background: transparent; color: var(--uw-text);
             -webkit-overflow-scrolling: touch; overscroll-behavior: contain; transition: opacity 0.2s;
           }
-          
+
           .uw-content label {
             display: block;
             margin-bottom: 4px;
@@ -2106,26 +2121,47 @@ class UITools {
           .uw-transparent .uw-header { background: rgba(0,0,0,0.3)!important; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 4px; }
           .uw-transparent .uw-content { background:transparent!important; padding: 0; }
           .uw-transparent .uw-footer { display:none!important; }
+
+          /* Dialog corner arc handles */
           .uw-corner {
-      position: absolute;
-      width: 15px;
-      height: 15px;
-      z-index: 20;
-      opacity: 1 !important;
-      touchAction: none;
-      userSelect: none;
-    }
-    .uw-corner::after {
-      content: '';
-      position: absolute;
-      top: -12px;
-      bottom: -12px;
-      left: -12px;
-      right: -12px;
-      touch-action: none;
-      cursor: inherit;
-    }
-   .uw-corner:hover, .uw-corner:active { opacity: 1 !important; transform: scale(1.1); }
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            z-index: 20;
+            opacity: 0.9 !important;
+            touch-action: none;
+            user-select: none;
+          }
+          .uw-corner svg {
+            display: block !important;
+          }
+          .uw-corner:hover {
+            opacity: 1 !important;
+            transform: scale(1.12);
+          }
+
+          /* Bottom and left corners can have general hit padding */
+          .uw-c-br::after, .uw-c-bl::after, .uw-c-tl::after {
+            content: '';
+            position: absolute;
+            top: -8px;
+            bottom: -8px;
+            left: -8px;
+            right: -8px;
+            touch-action: none;
+            cursor: inherit;
+          }
+          /* Top-right corner hit target expands strictly outward to prevent covering close button */
+          .uw-c-tr::after {
+            content: '';
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 15px;
+            height: 15px;
+            touch-action: none;
+            cursor: inherit;
+          }
 
           .uw-w-wrap { margin: 2px 0; }
           .uw-w-ph {
@@ -2254,7 +2290,6 @@ class UITools {
             .uw-swipe-hint { display:block; width: 32px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin: 0 auto; }
             .uw-title { font-size: 13px; }
             .uw-util-btn, .uw-close-btn { width: 36px!important; height: 36px!important; font-size: 14px!important; background: rgba(255,255,255,0.05); }
-            
             .uw-btn { padding: 12px 20px; font-size: 14px; min-height: 44px; }
           }
         `;
@@ -2271,7 +2306,6 @@ class UITools {
         style.textContent = css;
       }
     }
-
   _toggleMidi() {
     this._midiArmed = !this._midiArmed;
     if (this._midiDotEl)
