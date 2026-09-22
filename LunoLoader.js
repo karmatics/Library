@@ -158,10 +158,9 @@ class LunoLoader {
           try {
             await LunoLoader.loadScript('./' + scriptPath);
           } catch (scriptErr) {
-            // If script failed and was in app/ or docs/, test alternative directory before failing
             var parts = scriptPath.split('/');
             var fileName = parts.pop();
-            var altFolders = ['app', 'docs', 'core', 'browser'];
+            var altFolders = ['app', 'docs', 'core', 'browser', 'src'];
             var recovered = false;
             for (var af = 0; af < altFolders.length; af++) {
               var altPath = './' + altFolders[af] + '/' + fileName;
@@ -228,16 +227,28 @@ class LunoLoader {
           var execEmergency = async function(text) {
             if (!text || !text.trim()) return;
             try {
-              var res = await fetch('/api/save?project=' + encodeURIComponent((meta && meta.name) || 'Luno'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rawText: text })
-              });
-              var data = await res.json();
-              if (data && data.success) {
-                location.reload();
+              var targetProject = (meta && meta.name) || 'Luno';
+              var isStatic = LunoLoader.isStaticHosting();
+
+              if (!isStatic) {
+                var res = await fetch('/api/save?project=' + encodeURIComponent(targetProject), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'X-Luno-Client': '1' },
+                  body: JSON.stringify({ rawText: text })
+                });
+                var data = await res.json();
+                if (data && data.success) {
+                  location.reload();
+                } else {
+                  alert('Save failed: ' + ((data && data.error) || 'Storage error'));
+                }
               } else {
-                alert('Save failed: ' + ((data && data.error) || 'Storage error'));
+                if (typeof globalThis.ClientAppPaster !== 'undefined' && globalThis.ClientAppPaster.executeSave) {
+                  await globalThis.ClientAppPaster.executeSave(text);
+                  location.reload();
+                } else {
+                  alert('Please open Luno Workspace to apply payloads to IndexedDB.');
+                }
               }
             } catch(e) {
               alert('Save error: ' + e.message);
@@ -268,7 +279,7 @@ class LunoLoader {
           }
         }
       }
-    }
+  }
   static async applyPatchLog() {
     try {
       var res = await fetch('./LunoPatchLog.html?v=' + Date.now());
