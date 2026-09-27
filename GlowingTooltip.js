@@ -1,3 +1,4 @@
+var makeElement = globalThis.makeElement || (typeof window !== "undefined" ? window.makeElement : null);
 class GlowingTooltip {
     constructor(options = {}) {
       this.options = {
