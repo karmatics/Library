@@ -123,6 +123,11 @@ class LunoLoader {
         await LunoLoader.loadScript(libUrl);
       }
 
+      // Ensure DOM primitives (makeElement, applyCss) are immediately live
+      if (typeof DomBasics !== 'undefined' && typeof DomBasics.run === 'function') {
+        DomBasics.run();
+      }
+
       // 2. Load styles
       var styles = Array.isArray(meta.styles) ? meta.styles : [];
       for (var s = 0; s < styles.length; s++) {

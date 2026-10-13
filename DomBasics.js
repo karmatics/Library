@@ -1,4 +1,5 @@
 class DomBasics {
+
   static run() {
     if (typeof globalThis.makeElement === 'undefined') {
       globalThis.makeElement = function(type, ...args) {
@@ -47,6 +48,7 @@ class DomBasics {
         }
         return element;
       };
+      if (typeof window !== 'undefined') window.makeElement = globalThis.makeElement;
     }
 
     if (typeof globalThis.applyCss === 'undefined') {
@@ -65,6 +67,7 @@ class DomBasics {
           styleElement.textContent = cssString;
         }
       };
+      if (typeof window !== 'undefined') window.applyCss = globalThis.applyCss;
     }
   }
 }
