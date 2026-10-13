@@ -32,35 +32,53 @@ class VideoPlayer {
   }
 
   initPlayer() {
-    if (!this.container) {
-      const id = this.options.containerId || '[No ID provided]';
-      this.callback({
-        type: 'error',
-        player: this,
-        data: { message: `Container element not found (ID: "${id}")` },
-      });
-      return;
-    }
-    this.container.innerHTML = '';
+      if (!this.container) {
+        const id = this.options.containerId || '[No ID provided]';
+        this.callback({
+          type: 'error',
+          player: this,
+          data: { message: `Container element not found (ID: "${id}")` },
+        });
+        return;
+      }
+      this.container.innerHTML = '';
 
-    if (this.options.playerType === 'youtube') {
-      VideoPlayer.ensureYouTubeApiReadyHandler();
+      if (this.options.playerType === 'youtube') {
+        VideoPlayer.ensureYouTubeApiReadyHandler();
 
-      if (!window.YT || !window.YT.Player) {
-        window._ytApiReadyCallbacks.push(this.initYoutubePlayer.bind(this));
+        if (window.YT && window.YT.Player) {
+          this.initYoutubePlayer();
+        } else {
+          window._ytApiReadyCallbacks.push(this.initYoutubePlayer.bind(this));
 
-        if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-          const tag = makeElement('script', { src: 'https://www.youtube.com/iframe_api' });
-          document.body.appendChild(tag);
+          // Poll in case YouTube's script was already cached/in-flight and onYouTubeIframeAPIReady already fired
+          if (!this._ytPoll) {
+            this._ytPoll = setInterval(() => {
+              if (window.YT && window.YT.Player) {
+                clearInterval(this._ytPoll);
+                this._ytPoll = null;
+                if (window.onYouTubeIframeAPIReady) {
+                  window.onYouTubeIframeAPIReady();
+                }
+              }
+            }, 50);
+            setTimeout(() => {
+              if (this._ytPoll) {
+                clearInterval(this._ytPoll);
+                this._ytPoll = null;
+              }
+            }, 8000);
+          }
+
+          if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+            const tag = makeElement('script', { src: 'https://www.youtube.com/iframe_api' });
+            document.body.appendChild(tag);
+          }
         }
       } else {
-        this.initYoutubePlayer();
+        this.initHtml5Player();
       }
-    } else {
-      this.initHtml5Player();
     }
-  }
-
   static ensureYouTubeApiReadyHandler() {
     if (!window._ytApiReadyCallbacks) {
       window._ytApiReadyCallbacks = [];
