@@ -250,6 +250,19 @@ class LunoLoader {
       document.head.appendChild(script);
     });
   }
+
+  static loadStylesheet(url) {
+    if (!url) return;
+    // Prevent duplicate stylesheet tags
+    var existing = document.querySelector('link[href="' + url + '"]');
+    if (existing) return;
+
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = url;
+    document.head.appendChild(link);
+  }
 }
 
 globalThis.LunoLoader = LunoLoader;
