@@ -21,7 +21,6 @@ class P2PConnector {
       this.statusLabel = statusLabel;
       this.isHostMode = true;
 
-      // Real-time HTTPS/SSE relay on ntfy.sh (Zero-config, CORS enabled, no dead /signal POSTs)
       const customSignalServer = localStorage.getItem('accucad-custom-signal-server');
       const SIGNAL_BASE = customSignalServer || 'https://ntfy.sh';
       const signalTopic = `accucad-p2p-${roomCode}`;
@@ -94,15 +93,26 @@ class P2PConnector {
         this.updateStatus('Broadcasting offer to relay...', '#90a4ae');
         await broadcastOffer();
 
-        // EventSource (SSE) listens for real-time answer from phone
+        // Helper to unwrap ntfy message structure
+        const parseNtfyEvent = (eventData) => {
+          try {
+            const raw = JSON.parse(eventData);
+            if (raw.event === 'message' && raw.message) {
+              return typeof raw.message === 'string' ? JSON.parse(raw.message) : raw.message;
+            }
+            return typeof raw.message === 'string' ? JSON.parse(raw.message) : raw;
+          } catch (e) {
+            return null;
+          }
+        };
+
         try {
           const sseUrl = `${SIGNAL_BASE}/${signalTopic}/sse`;
           this._signalEventSource = new EventSource(sseUrl);
 
           this._signalEventSource.onmessage = async (event) => {
             try {
-              const raw = JSON.parse(event.data);
-              const payload = typeof raw.message === 'string' ? JSON.parse(raw.message) : raw;
+              const payload = parseNtfyEvent(event.data);
               if (!payload || payload.from !== 'client') return;
 
               if (payload.type === 'client-ready') {
