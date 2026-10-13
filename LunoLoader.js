@@ -89,118 +89,84 @@ class LunoLoader {
     });
   }
 
-  static async loadApp(containerId = 'app-container', manifestPath = 'luno.json') {
-      console.log(`[LunoLoader] Booting application via ${manifestPath}...`);
+  static async loadApp(containerId) {
+    try {
+      var cId = containerId || 'app-container';
+      var meta = null;
 
-      let meta = {};
+      // Determine current app base path
+      var base = window.location.origin + window.location.pathname;
+      if (!base.endsWith('/')) {
+        base = base.substring(0, base.lastIndexOf('/') + 1);
+      }
+
       try {
-        const manifestText = await LunoLoader.fetchText(manifestPath);
-        meta = JSON.parse(manifestText);
-      } catch (e) {
+        var res = await fetch(base + 'luno.json?v=' + Date.now());
+        if (res.ok) meta = await res.json();
+      } catch (e) {}
+
+      if (!meta) {
         try {
-          const altText = await LunoLoader.fetchText('/vibes/luno.json');
-          meta = JSON.parse(altText);
-        } catch (e2) {
-          console.error('[LunoLoader] Failed to fetch manifest:', e2);
-          return;
-        }
+          var resFallback = await fetch('./luno.json?v=' + Date.now());
+          if (resFallback.ok) meta = await resFallback.json();
+        } catch (e2) {}
       }
 
-      const libBase = LunoLoader.getLibraryBaseUrl();
-
-      // 1. Mandatory Preload: Ensure DomBasics.js is loaded and initialized BEFORE anything else
-      if (typeof makeElement === 'undefined' || typeof applyCss === 'undefined') {
-        try {
-          await LunoLoader.loadScriptTag(libBase + 'DomBasics.js', ['DomBasics']);
-        } catch (e) {}
-      }
-      if (typeof DomBasics !== 'undefined' && typeof DomBasics.run === 'function') {
-        DomBasics.run();
+      if (!meta) {
+        throw new Error('Could not load luno.json for application.');
       }
 
-      // 2. Load Library dependencies in order
-      const libFiles = [].concat(meta.library || []);
-      for (const lib of libFiles) {
-        const cleanLib = lib.replace(/^(?:Library|library)\//i, '');
-        if (cleanLib === 'DomBasics.js') continue;
-        const libUrl = libBase + cleanLib;
-        let classNames = [];
-        try {
-          const code = await LunoLoader.fetchText(libUrl);
-          classNames = LunoLoader.extractClassNames(code);
-        } catch (e) {}
-        await LunoLoader.loadScriptTag(libUrl, classNames);
+      // 1. Load shared library dependencies
+      var libs = Array.isArray(meta.library) ? meta.library : [];
+      for (var i = 0; i < libs.length; i++) {
+        var libUrl = LunoLoader.resolveScriptUrl('Library/' + libs[i]);
+        await LunoLoader.loadScript(libUrl);
       }
 
-      // 3. Load Local supporting files using root-anchored paths
-      const localFiles = [].concat(meta.local || meta.files || []);
-      for (const relFile of localFiles) {
-        if (relFile.endsWith('.css')) {
-          try {
-            const cssUrl = LunoLoader.resolveScriptUrl(relFile);
-            const cssText = await LunoLoader.fetchText(cssUrl);
-            if (typeof applyCss === 'function') applyCss(cssText);
-          } catch(e) {}
-          continue;
-        }
-
-        if (relFile.endsWith('.js') || relFile.endsWith('.mjs')) {
-          const scriptUrl = LunoLoader.resolveScriptUrl(relFile);
-          let classNames = [];
-          try {
-            const code = await LunoLoader.fetchText(scriptUrl);
-            classNames = LunoLoader.extractClassNames(code);
-          } catch (e) {}
-          await LunoLoader.loadScriptTag(scriptUrl, classNames);
-        }
+      // 2. Load styles
+      var styles = Array.isArray(meta.styles) ? meta.styles : [];
+      for (var s = 0; s < styles.length; s++) {
+        var styleUrl = LunoLoader.resolveScriptUrl(styles[s]);
+        LunoLoader.loadStylesheet(styleUrl);
       }
 
-      // 4. Load Main files using root-anchored paths
-      const mainFiles = [].concat(meta.main || []);
-      for (const mainFile of mainFiles) {
-        if (mainFile.endsWith('.js') || mainFile.endsWith('.mjs')) {
-          const scriptUrl = LunoLoader.resolveScriptUrl(mainFile);
-          let classNames = [];
-          try {
-            const code = await LunoLoader.fetchText(scriptUrl);
-            classNames = LunoLoader.extractClassNames(code);
-          } catch (e) {}
-          await LunoLoader.loadScriptTag(scriptUrl, classNames);
-        }
+      // 3. Load main scripts relative to app directory
+      var scripts = Array.isArray(meta.main) ? meta.main : [];
+      for (var j = 0; j < scripts.length; j++) {
+        var scriptUrl = LunoLoader.resolveScriptUrl(scripts[j]);
+        await LunoLoader.loadScript(scriptUrl);
       }
 
-      // 5. Instantiate Entrypoint class
-      const entrypoint = meta.entrypoint || {};
-      const entryClass = entrypoint.class || meta.mainClass || (mainFiles[0] ? mainFiles[0].split('/').pop().replace(/\.js$/, '') : 'App');
-      const entryMethod = entrypoint.method || 'run';
-
-      let TargetClass = globalThis[entryClass] || window[entryClass];
-      if (!TargetClass) {
-        try {
-          TargetClass = eval(entryClass);
-          if (TargetClass) globalThis[entryClass] = TargetClass;
-        } catch (e) {}
-      }
-
-      if (!TargetClass) {
-        LunoLoader.renderEmergencyCockpit(containerId, entryClass, meta);
-        return;
-      }
-
-      const container = document.getElementById(containerId) || document.body;
+      // 4. Apply patch log if present
       try {
-        const appInstance = new TargetClass();
-        if (typeof appInstance[entryMethod] === 'function') {
-          await appInstance[entryMethod]({ container, meta });
-        } else if (typeof TargetClass[entryMethod] === 'function') {
-          await TargetClass[entryMethod]({ container, meta });
-        }
-        console.log(`[LunoLoader] ✅ Successfully launched [${entryClass}.${entryMethod}()]!`);
-      } catch (runErr) {
-        console.error(`[LunoLoader] Launch error in ${entryClass}:`, runErr);
-        LunoLoader.renderDiagnosticScreen(containerId, runErr);
+        await LunoLoader.applyPatchLog(meta.name);
+      } catch (plErr) {}
+
+      // 5. Mount entrypoint
+      var entry = meta.entrypoint || {};
+      var clsName = entry.class || meta.mainClass || 'Main';
+      var mthName = entry.method || 'run';
+
+      var EntryClass = globalThis[clsName] || window[clsName];
+      if (!EntryClass) {
+        throw new Error('Entrypoint class [' + clsName + '] not found in loaded scope.');
       }
+
+      var container = document.getElementById(cId) || document.body;
+      var inst = new EntryClass();
+
+      if (typeof inst[mthName] === 'function') {
+        await inst[mthName]({ container: container, meta: meta });
+      } else if (typeof EntryClass[mthName] === 'function') {
+        await EntryClass[mthName]({ container: container, meta: meta });
+      }
+
+    } catch (err) {
+      console.error('[LunoLoader Exception]', err);
+      var box = document.getElementById(containerId || 'app-container') || document.body;
+      box.innerHTML = '<div style="padding:1.5rem; background:#2c080a; color:#ff7b72; border:2px solid #f85149; border-radius:8px; font-family:monospace; margin:1rem;"><h3>⚠️ Application Load Error</h3><pre>' + err.message + '\n' + (err.stack || '') + '</pre></div>';
     }
+  }
   static renderEmergencyCockpit(containerId, missingClass, meta) {
     const container = document.getElementById(containerId) || document.body;
     container.innerHTML = `
@@ -222,24 +188,63 @@ class LunoLoader {
     `;
   }
 
-  static resolveScriptUrl(rawPath) {
-      if (!rawPath || typeof rawPath !== 'string') return '';
-      if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) return rawPath;
+  static resolveScriptUrl(scriptPath) {
+    if (!scriptPath || typeof scriptPath !== 'string') return '';
+    var clean = scriptPath.replace(/\\/g, '/').trim();
 
-      let clean = rawPath.replace(/\\/g, '/').replace(/^\/+/, '').trim();
+    // If already absolute HTTP(S), leave as is
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
 
-      // Prevent duplicate prefix nesting (e.g. /Luno/Luno/ or /vibes/vibes/)
-      if (typeof window !== 'undefined' && window.location) {
-        const pathSegments = window.location.pathname.split('/').filter(Boolean);
-        const currentDir = pathSegments[0] || '';
-        if (currentDir && clean.startsWith(currentDir + '/' + currentDir + '/')) {
-          clean = clean.slice(currentDir.length + 1);
-        }
+    // Shared library files always point to /Library/
+    if (clean.startsWith('Library/') || clean.startsWith('/Library/') || clean.startsWith('library/') || clean.startsWith('/library/')) {
+      var libPath = clean.replace(/^\/?(?:Library|library)\//, '');
+      var account = (window.location.hostname.endsWith('.github.io'))
+        ? window.location.hostname.split('.')[0]
+        : 'karmatics';
+
+      return window.location.hostname.endsWith('.github.io')
+        ? 'https://' + account + '.github.io/Library/' + libPath
+        : '/Library/' + libPath;
+    }
+
+    // App-specific scripts resolve strictly relative to the current page/repository path
+    // (e.g. /accuCad/js/AccuDraw.js instead of /js/AccuDraw.js)
+    clean = clean.replace(/^\/+/, '');
+
+    var base = window.location.origin + window.location.pathname;
+    if (!base.endsWith('/')) {
+      base = base.substring(0, base.lastIndexOf('/') + 1);
+    }
+    return base + clean;
+  }
+
+  static loadScript(url) {
+    return new Promise((resolve, reject) => {
+      // Check if script already loaded
+      var existing = document.querySelector('script[src="' + url + '"]');
+      if (existing) {
+        resolve();
+        return;
       }
 
-      // Anchor to domain root to avoid relative directory accumulation
-      return '/' + clean;
-    }
+      var script = document.createElement('script');
+      script.src = url;
+      script.async = false;
+      script.onload = () => resolve();
+      script.onerror = () => {
+        // Retry once without query params if failed
+        var cleanUrl = url.split('?')[0];
+        if (cleanUrl !== url) {
+          script.src = cleanUrl;
+        } else {
+          reject(new Error('Failed to load script: ' + url));
+        }
+      };
+      document.head.appendChild(script);
+    });
+  }
 }
 
 globalThis.LunoLoader = LunoLoader;
