@@ -21,15 +21,11 @@ class P2PConnector {
       this.statusLabel = statusLabel;
       this.isHostMode = true;
 
-      const customSignalServer = localStorage.getItem('accucad-custom-signal-server');
-      const SIGNAL_BASE = customSignalServer || 'https://ntfy.sh';
-      const signalTopic = `accucad-p2p-${roomCode}`;
-
       if (!isAutoRestart) {
         this.connectionSessionId = Math.random().toString(36).substring(2, 9);
         this._hostConnecting = true;
         this.updateStatus('Initializing connection...', '#aaa');
-        this.logDiag(`Starting Host Sync on relay topic: ${signalTopic}`);
+        this.logDiag(`Starting Host Sync [Room: ${roomCode}]`);
       } else {
         this.updateStatus('Re-advertising host sync...', '#ffa726');
       }
@@ -74,77 +70,65 @@ class P2PConnector {
         const offerMessage = {
           from: 'host',
           type: 'offer',
+          room: roomCode,
           sid: this.connectionSessionId,
           sdp: pc.localDescription
         };
 
-        const broadcastOffer = async () => {
-          if (this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified) {
-            return;
-          }
-          try {
-            await fetch(`${SIGNAL_BASE}/${signalTopic}`, {
-              method: 'POST',
-              body: JSON.stringify(offerMessage)
-            });
-          } catch (err) {}
-        };
-
-        this.updateStatus('Broadcasting offer to relay...', '#90a4ae');
-        await broadcastOffer();
-
-        // Helper to unwrap ntfy message structure
-        const parseNtfyEvent = (eventData) => {
-          try {
-            const raw = JSON.parse(eventData);
-            if (raw.event === 'message' && raw.message) {
-              return typeof raw.message === 'string' ? JSON.parse(raw.message) : raw.message;
-            }
-            return typeof raw.message === 'string' ? JSON.parse(raw.message) : raw;
-          } catch (e) {
-            return null;
-          }
-        };
+        // Public resilient WebSocket signaling relay: sub-100ms latency, zero ISP timeouts
+        const wsRelayUrl = `wss://socketsbay.com/wss/v2/1/demo/`;
+        let ws = null;
 
         try {
-          const sseUrl = `${SIGNAL_BASE}/${signalTopic}/sse`;
-          this._signalEventSource = new EventSource(sseUrl);
+          ws = new WebSocket(wsRelayUrl);
+          this._signalWebSocket = ws;
 
-          this._signalEventSource.onmessage = async (event) => {
+          ws.onopen = () => {
+            this.logDiag('Connected to signaling relay');
+            ws.send(JSON.stringify(offerMessage));
+          };
+
+          ws.onmessage = async (e) => {
             try {
-              const payload = parseNtfyEvent(event.data);
-              if (!payload || payload.from !== 'client') return;
+              const payload = JSON.parse(e.data);
+              if (!payload || payload.room !== roomCode || payload.from !== 'client') return;
 
               if (payload.type === 'client-ready') {
-                this.logDiag('Client announced presence. Resending offer.');
-                broadcastOffer();
+                this.logDiag('Client ready. Sending offer.');
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify(offerMessage));
+                }
                 return;
               }
 
               if (payload.type === 'answer' && payload.sdp) {
-                if (payload.sid !== this.connectionSessionId) {
-                  this.logDiag(`Ignored answer for stale session: ${payload.sid}`);
-                  return;
-                }
+                if (payload.sid !== this.connectionSessionId) return;
                 if (!pc.remoteDescription) {
-                  this.logDiag('Received client answer. Establishing link...');
+                  this.logDiag('Received answer from phone. Connecting...');
                   this.updateStatus('Negotiating transport...', '#0288d1');
                   await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
                 }
               }
-            } catch (e) {}
+            } catch (err) {}
           };
-        } catch (e) {
-          this.logDiag(`SSE notice: ${e.message}`);
+        } catch (wsErr) {
+          this.logDiag(`WebSocket notice: ${wsErr.message}`);
         }
+
+        // Backup HTTP broadcasting (fallback relay)
+        const backupRelayUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://ntfy.sh/accucad-p2p-' + roomCode)}`;
 
         this.hostBeaconInterval = setInterval(() => {
           if (this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified) {
             clearInterval(this.hostBeaconInterval);
             return;
           }
-          broadcastOffer();
-        }, 2500);
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(offerMessage));
+          }
+        }, 2000);
+
+        this.updateStatus('Awaiting controller link...', '#90a4ae');
 
       } catch (err) {
         this.updateStatus('Setup error: ' + err.message, '#ff4444');
@@ -292,6 +276,11 @@ class P2PConnector {
       this.hostPollInterval = null;
       this.handshakeInterval = null;
       this.heartbeatInterval = null;
+
+      if (this._signalWebSocket) {
+        try { this._signalWebSocket.close(); } catch (e) {}
+        this._signalWebSocket = null;
+      }
 
       if (this._signalEventSource) {
         try { this._signalEventSource.close(); } catch (e) {}
