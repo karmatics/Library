@@ -90,88 +90,95 @@ class LunoLoader {
   }
 
   static async loadApp(containerId) {
-    try {
-      var cId = containerId || 'app-container';
-      var meta = null;
-
-      // Determine current app base path
-      var base = window.location.origin + window.location.pathname;
-      if (!base.endsWith('/')) {
-        base = base.substring(0, base.lastIndexOf('/') + 1);
-      }
-
       try {
-        var res = await fetch(base + 'luno.json?v=' + Date.now());
-        if (res.ok) meta = await res.json();
-      } catch (e) {}
+        var cId = containerId || 'app-container';
+        var meta = null;
 
-      if (!meta) {
+        var base = window.location.origin + window.location.pathname;
+        if (!base.endsWith('/')) {
+          base = base.substring(0, base.lastIndexOf('/') + 1);
+        }
+
         try {
-          var resFallback = await fetch('./luno.json?v=' + Date.now());
-          if (resFallback.ok) meta = await resFallback.json();
-        } catch (e2) {}
+          var res = await fetch(base + 'luno.json?v=' + Date.now());
+          if (res.ok) meta = await res.json();
+        } catch (e) {}
+
+        if (!meta) {
+          try {
+            var resFallback = await fetch('./luno.json?v=' + Date.now());
+            if (resFallback.ok) meta = await resFallback.json();
+          } catch (e2) {}
+        }
+
+        if (!meta) {
+          throw new Error('Could not load luno.json for application.');
+        }
+
+        const statusMsg = document.getElementById('aardvark-boot-msg');
+        const updateBootStatus = (txt) => {
+          if (statusMsg) statusMsg.textContent = txt;
+        };
+
+        // 1. Prepare shared library dependencies & styles
+        var libs = Array.isArray(meta.library) ? meta.library : [];
+        var libUrls = libs.map(lib => LunoLoader.resolveScriptUrl('Library/' + lib));
+
+        var styles = Array.isArray(meta.styles) ? meta.styles : [];
+        for (var s = 0; s < styles.length; s++) {
+          var styleUrl = LunoLoader.resolveScriptUrl(styles[s]);
+          LunoLoader.loadStylesheet(styleUrl);
+        }
+
+        // Load library scripts in parallel
+        updateBootStatus('Loading core libraries...');
+        await LunoLoader.loadScriptsInOrder(libUrls);
+
+        // Ensure DOM primitives are live
+        if (typeof DomBasics !== 'undefined' && typeof DomBasics.run === 'function') {
+          DomBasics.run();
+        }
+
+        // 2. Load main application scripts in parallel
+        var scripts = Array.isArray(meta.main) ? meta.main : [];
+        var mainUrls = scripts.map(s => LunoLoader.resolveScriptUrl(s));
+
+        updateBootStatus('Loading player interface...');
+        await LunoLoader.loadScriptsInOrder(mainUrls, (cur, total) => {
+          updateBootStatus(`Loading player components (${cur}/${total})...`);
+        });
+
+        // 3. Apply patch log if present
+        try {
+          await LunoLoader.applyPatchLog(meta.name);
+        } catch (plErr) {}
+
+        // 4. Mount entrypoint
+        var entry = meta.entrypoint || {};
+        var clsName = entry.class || meta.mainClass || 'Main';
+        var mthName = entry.method || 'run';
+
+        var EntryClass = globalThis[clsName] || window[clsName];
+        if (!EntryClass) {
+          throw new Error('Entrypoint class [' + clsName + '] not found in loaded scope.');
+        }
+
+        var container = document.getElementById(cId) || document.body;
+        var inst = new EntryClass();
+
+        updateBootStatus('Launching...');
+        if (typeof inst[mthName] === 'function') {
+          await inst[mthName]({ container: container, meta: meta });
+        } else if (typeof EntryClass[mthName] === 'function') {
+          await EntryClass[mthName]({ container: container, meta: meta });
+        }
+
+      } catch (err) {
+        console.error('[LunoLoader Exception]', err);
+        var box = document.getElementById(containerId || 'app-container') || document.body;
+        box.innerHTML = '<div style="padding:1.5rem; background:#2c080a; color:#ff7b72; border:2px solid #f85149; border-radius:8px; font-family:monospace; margin:1rem;"><h3>⚠️ Application Load Error</h3><pre>' + err.message + '\n' + (err.stack || '') + '</pre></div>';
       }
-
-      if (!meta) {
-        throw new Error('Could not load luno.json for application.');
-      }
-
-      // 1. Load shared library dependencies
-      var libs = Array.isArray(meta.library) ? meta.library : [];
-      for (var i = 0; i < libs.length; i++) {
-        var libUrl = LunoLoader.resolveScriptUrl('Library/' + libs[i]);
-        await LunoLoader.loadScript(libUrl);
-      }
-
-      // Ensure DOM primitives (makeElement, applyCss) are immediately live
-      if (typeof DomBasics !== 'undefined' && typeof DomBasics.run === 'function') {
-        DomBasics.run();
-      }
-
-      // 2. Load styles
-      var styles = Array.isArray(meta.styles) ? meta.styles : [];
-      for (var s = 0; s < styles.length; s++) {
-        var styleUrl = LunoLoader.resolveScriptUrl(styles[s]);
-        LunoLoader.loadStylesheet(styleUrl);
-      }
-
-      // 3. Load main scripts relative to app directory
-      var scripts = Array.isArray(meta.main) ? meta.main : [];
-      for (var j = 0; j < scripts.length; j++) {
-        var scriptUrl = LunoLoader.resolveScriptUrl(scripts[j]);
-        await LunoLoader.loadScript(scriptUrl);
-      }
-
-      // 4. Apply patch log if present
-      try {
-        await LunoLoader.applyPatchLog(meta.name);
-      } catch (plErr) {}
-
-      // 5. Mount entrypoint
-      var entry = meta.entrypoint || {};
-      var clsName = entry.class || meta.mainClass || 'Main';
-      var mthName = entry.method || 'run';
-
-      var EntryClass = globalThis[clsName] || window[clsName];
-      if (!EntryClass) {
-        throw new Error('Entrypoint class [' + clsName + '] not found in loaded scope.');
-      }
-
-      var container = document.getElementById(cId) || document.body;
-      var inst = new EntryClass();
-
-      if (typeof inst[mthName] === 'function') {
-        await inst[mthName]({ container: container, meta: meta });
-      } else if (typeof EntryClass[mthName] === 'function') {
-        await EntryClass[mthName]({ container: container, meta: meta });
-      }
-
-    } catch (err) {
-      console.error('[LunoLoader Exception]', err);
-      var box = document.getElementById(containerId || 'app-container') || document.body;
-      box.innerHTML = '<div style="padding:1.5rem; background:#2c080a; color:#ff7b72; border:2px solid #f85149; border-radius:8px; font-family:monospace; margin:1rem;"><h3>⚠️ Application Load Error</h3><pre>' + err.message + '\n' + (err.stack || '') + '</pre></div>';
     }
-  }
   static renderEmergencyCockpit(containerId, missingClass, meta) {
     const container = document.getElementById(containerId) || document.body;
     container.innerHTML = `
@@ -263,6 +270,49 @@ class LunoLoader {
     link.href = url;
     document.head.appendChild(link);
   }
+
+  static loadScriptsInOrder(urls, onProgress) {
+      return new Promise((resolve) => {
+        if (!urls || urls.length === 0) return resolve();
+        let remaining = urls.length;
+        let loaded = 0;
+        urls.forEach((url) => {
+          const cleanUrl = url.split('?')[0];
+          if (LunoLoader.loadedUrls.has(cleanUrl)) {
+            loaded++;
+            remaining--;
+            if (onProgress) onProgress(loaded, urls.length, url);
+            if (remaining === 0) resolve();
+            return;
+          }
+          LunoLoader.loadedUrls.add(cleanUrl);
+
+          const script = document.createElement('script');
+          script.src = url;
+          script.async = false; // Browser downloads in parallel, executes strictly in insertion order
+          script.onload = () => {
+            loaded++;
+            remaining--;
+            if (onProgress) onProgress(loaded, urls.length, url);
+            if (remaining === 0) resolve();
+          };
+          script.onerror = () => {
+            console.warn(`[LunoLoader] Error loading script: ${url}`);
+            loaded++;
+            remaining--;
+            if (onProgress) onProgress(loaded, urls.length, url);
+            if (remaining === 0) resolve();
+          };
+          document.head.appendChild(script);
+        });
+      });
+    }
+
+  static async lazyLoad(scriptPaths) {
+      if (!Array.isArray(scriptPaths)) scriptPaths = [scriptPaths];
+      const urls = scriptPaths.map(p => LunoLoader.resolveScriptUrl(p));
+      return LunoLoader.loadScriptsInOrder(urls);
+    }
 }
 
 globalThis.LunoLoader = LunoLoader;
