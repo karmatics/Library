@@ -44,182 +44,182 @@ class ThreeJSLoader {
   }
 
   async init(containerElement) {
-    const CDN_BASE = 'https://cdn.jsdelivr.net/npm/three@0.153.0';
-    const FALLBACK_CDN = 'https://unpkg.com/three@0.153.0';
+      const CDN_BASE = 'https://cdn.jsdelivr.net/npm/three@0.153.0';
+      const FALLBACK_CDN = 'https://unpkg.com/three@0.153.0';
 
-    const THREE_URL = CDN_BASE + '/build/three.module.js';
-    const ADDONS = CDN_BASE + '/examples/jsm';
+      const THREE_URL = CDN_BASE + '/build/three.module.js';
+      const ADDONS = CDN_BASE + '/examples/jsm';
 
-    try {
-      if (window.THREE && window.THREE.WebGLRenderer) {
-        this.THREE = window.THREE;
-      } else {
-        try {
-          this.THREE = await import(THREE_URL);
-        } catch(cdnErr) {
-          this.THREE = await import(FALLBACK_CDN + '/build/three.module.js');
+      try {
+        if (window.THREE && window.THREE.WebGLRenderer) {
+          this.THREE = window.THREE;
+        } else {
+          try {
+            this.THREE = await import(THREE_URL);
+          } catch(cdnErr) {
+            this.THREE = await import(FALLBACK_CDN + '/build/three.module.js');
+          }
+          window.THREE = this.THREE;
+          globalThis.THREE = this.THREE;
         }
-        window.THREE = this.THREE;
-        globalThis.THREE = this.THREE;
+      } catch (e) {
+        console.error('[ThreeJSLoader] THREE import/reuse FAILED:', e);
+        throw e;
       }
-    } catch (e) {
-      console.error('[ThreeJSLoader] THREE import/reuse FAILED:', e);
-      throw e;
-    }
 
-    const THREE = this.THREE;
+      const THREE = this.THREE;
 
-    const loadAddon = async (subPath) => {
-      const blobUrl = await this._fetchAndRewrite(ADDONS + subPath, THREE_URL, 1);
-      return await import(blobUrl);
-    };
+      const loadAddon = async (subPath) => {
+        const blobUrl = await this._fetchAndRewrite(ADDONS + subPath, THREE_URL, 1);
+        return await import(blobUrl);
+      };
 
-    const jobs = [];
+      const jobs = [];
 
-    // 1. Controls
-    if (this.options.enableControls) {
-      jobs.push(
-        loadAddon('/controls/OrbitControls.js').then((m) => {
-          this.modules.OrbitControls = m.OrbitControls;
-          window.OrbitControls = m.OrbitControls;
-          globalThis.OrbitControls = m.OrbitControls;
-        })
-      );
-    }
-
-    // 2. Thick Lines (LineGeometry, LineMaterial, Line2 for accuCad, TriBlob)
-    if (this.options.useThickLines) {
-      jobs.push(
-        loadAddon('/lines/LineSegmentsGeometry.js').then((m) => {
-          this.modules.LineSegmentsGeometry = m.LineSegmentsGeometry;
-          window.LineSegmentsGeometry = m.LineSegmentsGeometry;
-          globalThis.LineSegmentsGeometry = m.LineSegmentsGeometry;
-        })
-      );
-      jobs.push(
-        loadAddon('/lines/LineGeometry.js').then((m) => {
-          this.modules.LineGeometry = m.LineGeometry;
-          window.LineGeometry = m.LineGeometry;
-          globalThis.LineGeometry = m.LineGeometry;
-        })
-      );
-      jobs.push(
-        loadAddon('/lines/LineMaterial.js').then((m) => {
-          this.modules.LineMaterial = m.LineMaterial;
-          window.LineMaterial = m.LineMaterial;
-          globalThis.LineMaterial = m.LineMaterial;
-        })
-      );
-      jobs.push(
-        loadAddon('/lines/Line2.js').then((m) => {
-          this.modules.Line2 = m.Line2;
-          window.Line2 = m.Line2;
-          globalThis.Line2 = m.Line2;
-        })
-      );
-    }
-
-    // 3. Always include RGBELoader & GLTFLoader so environment maps are effortless
-    jobs.push(
-      loadAddon('/loaders/GLTFLoader.js').then((m) => {
-        this.modules.GLTFLoader = m.GLTFLoader;
-        window.GLTFLoader = m.GLTFLoader;
-        globalThis.GLTFLoader = m.GLTFLoader;
-      })
-    );
-    jobs.push(
-      loadAddon('/loaders/RGBELoader.js').then((m) => {
-        this.modules.RGBELoader = m.RGBELoader;
-        window.RGBELoader = m.RGBELoader;
-        globalThis.RGBELoader = m.RGBELoader;
-      })
-    );
-
-    await Promise.all(jobs);
-
-    const container =
-      containerElement ||
-      document.getElementById(this.containerId) ||
-      document.body;
-
-    this.scene = new THREE.Scene();
-
-    const rect = container.getBoundingClientRect();
-    const width = Math.max(1, rect.width || container.clientWidth || 640);
-    const height = Math.max(1, rect.height || container.clientHeight || 360);
-
-    const fov = this.options.fov || 50;
-    this.camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 2000);
-
-    if (this.options.cameraPos) {
-      this.camera.position.set(
-        this.options.cameraPos.x,
-        this.options.cameraPos.y,
-        this.options.cameraPos.z
-      );
-    } else {
-      this.camera.position.z = 5;
-    }
-
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-
-    // ACESFilmic tone mapping with neutral exposure
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
-
-    this.renderer.domElement.style.display = 'block';
-    this.renderer.domElement.style.width = '100%';
-    this.renderer.domElement.style.height = '100%';
-
-    this.renderer.setSize(width, height, false);
-    container.appendChild(this.renderer.domElement);
-
-    if (this.options.enableControls && this.modules.OrbitControls) {
-      this.controls = new this.modules.OrbitControls(
-        this.camera,
-        this.renderer.domElement
-      );
-      this.controls.enableDamping = true;
-      this.controls.dampingFactor = 0.05;
-    }
-
-    if (this.options.useRaycaster) this.raycaster = new THREE.Raycaster();
-    if (this.modules.GLTFLoader) this.loaders.gltf = new this.modules.GLTFLoader();
-
-    // 4. Balanced Default Studio Lighting (Never overexposed, easily toggled off)
-    if (this.options.lighting !== false) {
-      this.setupStudioLighting();
-    }
-
-    // 5. Automatic Environment Map (Default ON for beautiful reflections)
-    if (this.options.environment !== false) {
-      const targetHdr = this.options.hdrPath || '/assets/venice_sunset_1k.hdr';
-      this.loadEnvironment(targetHdr).catch(err => {
-        console.warn('[ThreeJSLoader] Auto environment map load note:', err.message);
-      });
-    }
-
-    window.addEventListener('resize', this._onResizeBound, false);
-
-    if (typeof ResizeObserver !== 'undefined') {
-      this._resizeObserver = new ResizeObserver(() => {
-        this._onResize();
-      });
-      this._resizeObserver.observe(container);
-    }
-
-    this.renderer.setAnimationLoop(() => {
-      if (this.controls) this.controls.update();
-      if (this.onUpdateCallback) {
-        try { this.onUpdateCallback(); } catch(e) {}
+      // 1. Controls
+      if (this.options.enableControls) {
+        jobs.push(
+          loadAddon('/controls/OrbitControls.js').then((m) => {
+            this.modules.OrbitControls = m.OrbitControls;
+            window.OrbitControls = m.OrbitControls;
+            globalThis.OrbitControls = m.OrbitControls;
+          })
+        );
       }
-      this.renderer.render(this.scene, this.camera);
-    });
 
-    return this;
-  }
+      // 2. Thick Lines
+      if (this.options.useThickLines) {
+        jobs.push(
+          loadAddon('/lines/LineSegmentsGeometry.js').then((m) => {
+            this.modules.LineSegmentsGeometry = m.LineSegmentsGeometry;
+            window.LineSegmentsGeometry = m.LineSegmentsGeometry;
+            globalThis.LineSegmentsGeometry = m.LineSegmentsGeometry;
+          })
+        );
+        jobs.push(
+          loadAddon('/lines/LineGeometry.js').then((m) => {
+            this.modules.LineGeometry = m.LineGeometry;
+            window.LineGeometry = m.LineGeometry;
+            globalThis.LineGeometry = m.LineGeometry;
+          })
+        );
+        jobs.push(
+          loadAddon('/lines/LineMaterial.js').then((m) => {
+            this.modules.LineMaterial = m.LineMaterial;
+            window.LineMaterial = m.LineMaterial;
+            globalThis.LineMaterial = m.LineMaterial;
+          })
+        );
+        jobs.push(
+          loadAddon('/lines/Line2.js').then((m) => {
+            this.modules.Line2 = m.Line2;
+            window.Line2 = m.Line2;
+            globalThis.Line2 = m.Line2;
+          })
+        );
+      }
 
+      // 3. Always include RGBELoader & GLTFLoader
+      jobs.push(
+        loadAddon('/loaders/GLTFLoader.js').then((m) => {
+          this.modules.GLTFLoader = m.GLTFLoader;
+          window.GLTFLoader = m.GLTFLoader;
+          globalThis.GLTFLoader = m.GLTFLoader;
+        })
+      );
+      jobs.push(
+        loadAddon('/loaders/RGBELoader.js').then((m) => {
+          this.modules.RGBELoader = m.RGBELoader;
+          window.RGBELoader = m.RGBELoader;
+          globalThis.RGBELoader = m.RGBELoader;
+        })
+      );
+
+      await Promise.all(jobs);
+
+      const container =
+        containerElement ||
+        document.getElementById(this.containerId) ||
+        document.body;
+
+      this.scene = new THREE.Scene();
+
+      const rect = container.getBoundingClientRect();
+      const width = Math.max(1, rect.width || container.clientWidth || 640);
+      const height = Math.max(1, rect.height || container.clientHeight || 360);
+
+      const fov = this.options.fov || 50;
+      this.camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 2000);
+
+      if (this.options.cameraPos) {
+        this.camera.position.set(
+          this.options.cameraPos.x,
+          this.options.cameraPos.y,
+          this.options.cameraPos.z
+        );
+      } else {
+        this.camera.position.z = 5;
+      }
+
+      this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.0;
+
+      this.renderer.domElement.style.display = 'block';
+      this.renderer.domElement.style.width = '100%';
+      this.renderer.domElement.style.height = '100%';
+
+      this.renderer.setSize(width, height, false);
+      container.appendChild(this.renderer.domElement);
+
+      if (this.options.enableControls && this.modules.OrbitControls) {
+        this.controls = new this.modules.OrbitControls(
+          this.camera,
+          this.renderer.domElement
+        );
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+      }
+
+      if (this.options.useRaycaster) this.raycaster = new THREE.Raycaster();
+      if (this.modules.GLTFLoader) this.loaders.gltf = new this.modules.GLTFLoader();
+
+      if (this.options.lighting !== false) {
+        this.setupStudioLighting();
+      }
+
+      if (this.options.environment !== false) {
+        const targetHdr = this.options.hdrPath || '/assets/venice_sunset_1k.hdr';
+        this.loadEnvironment(targetHdr).catch(err => {
+          console.warn('[ThreeJSLoader] Auto environment map note:', err.message);
+        });
+      }
+
+      window.addEventListener('resize', this._onResizeBound, false);
+
+      if (typeof ResizeObserver !== 'undefined') {
+        this._resizeObserver = new ResizeObserver(() => {
+          this._onResize();
+        });
+        this._resizeObserver.observe(container);
+      }
+
+      this.renderer.setAnimationLoop(() => {
+        if (this.controls) this.controls.update();
+        if (this.onUpdateCallback) {
+          try { this.onUpdateCallback(); } catch(e) {}
+        }
+        if (typeof this.customRender === 'function') {
+          this.customRender(this.renderer, this.scene, this.camera);
+        } else {
+          this.renderer.render(this.scene, this.camera);
+        }
+      });
+
+      return this;
+    }
   setupStudioLighting() {
     if (!this.scene || !this.THREE) return;
     const THREE = this.THREE;
@@ -263,17 +263,20 @@ class ThreeJSLoader {
   async loadEnvironment(url) {
     if (!this.scene || !this.renderer) return;
 
-    // Auto-remap dead recursi URLs or generic paths to verified local HDR
-    let targetUrl = url || '/assets/venice_sunset_1k.hdr';
-    if (targetUrl.includes('recursi.dev') || targetUrl.includes('venice_sunset_1k.hdr')) {
-      targetUrl = '/assets/venice_sunset_1k.hdr';
+    // Resolve HDR asset gracefully without throwing 404 errors on GitHub Pages
+    let targetUrl = url;
+    if (!targetUrl || targetUrl.includes('venice_sunset_1k.hdr')) {
+      const isGitHub = window.location.hostname.endsWith('.github.io');
+      targetUrl = isGitHub
+        ? 'https://karmatics.github.io/Library/assets/venice_sunset_1k.hdr'
+        : '/assets/venice_sunset_1k.hdr';
     }
 
     if (this.modules.RGBELoader) {
       const pmremGenerator = new this.THREE.PMREMGenerator(this.renderer);
       pmremGenerator.compileEquirectangularShader();
 
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         new this.modules.RGBELoader().load(
           targetUrl,
           (texture) => {
@@ -285,12 +288,14 @@ class ThreeJSLoader {
             resolve(envMap);
           },
           undefined,
-          reject
+          (err) => {
+            pmremGenerator.dispose();
+            resolve(null);
+          }
         );
       });
     }
   }
-
   clearEnvironment() {
     if (this.scene) {
       this.scene.environment = null;

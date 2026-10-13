@@ -17,41 +17,26 @@ class P2PConnector {
     }
 
     async startWirelessHost(roomCode, statusLabel, isAutoRestart = false) {
-      const SIGNAL_BASE = window.location.hostname.includes('recursi.dev') 
-        ? 'https://recursi.dev/TouchController/signal.php' 
-        : (window.location.origin + '/signal');
       this.roomCode = roomCode;
       this.statusLabel = statusLabel;
       this.isHostMode = true;
+
+      // Real-time HTTPS/SSE relay on ntfy.sh (Zero-config, CORS enabled, no dead /signal POSTs)
+      const customSignalServer = localStorage.getItem('accucad-custom-signal-server');
+      const SIGNAL_BASE = customSignalServer || 'https://ntfy.sh';
+      const signalTopic = `accucad-p2p-${roomCode}`;
 
       if (!isAutoRestart) {
         this.connectionSessionId = Math.random().toString(36).substring(2, 9);
         this._hostConnecting = true;
         this.updateStatus('Initializing connection...', '#aaa');
+        this.logDiag(`Starting Host Sync on relay topic: ${signalTopic}`);
       } else {
         this.updateStatus('Re-advertising host sync...', '#ffa726');
       }
 
       this.updateButtonState(true);
       this.cleanupConnection(true);
-
-      const hostTopic = `vibes-rotate-${roomCode}-host`;
-      const clientTopic = `vibes-rotate-${roomCode}-client`;
-
-      // Added cache-busting timestamps prevent proxy and CDN caching
-      try {
-        await fetch(`${SIGNAL_BASE}/${hostTopic}?_=${Date.now()}`, { method: 'POST', body: '' });
-        await fetch(`${SIGNAL_BASE}/${clientTopic}?_=${Date.now()}`, { method: 'POST', body: '' });
-      } catch(e) {
-        this.updateStatus('Signaling server offline. Retrying...', '#ff4444');
-        this.handleConnectionFailure();
-        return;
-      }
-
-      if (!isAutoRestart) {
-        this.updateStatus('Cleared signaling. Building offer...', '#aaa');
-      }
-      await new Promise(r => setTimeout(r, 300));
 
       try {
         const pc = new RTCPeerConnection(this.getRTCConfig());
@@ -60,6 +45,7 @@ class P2PConnector {
         pc.oniceconnectionstatechange = () => {
           const s = pc.iceConnectionState.toLowerCase();
           this.updateStatus(`Routes: ${s}`, '#90a4ae');
+          this.logDiag(`ICE state: ${s}`);
           if (s === 'failed') {
             this.updateStatus('Routes failed. Reconnecting...', '#ff4444');
             this.handleConnectionFailure();
@@ -68,6 +54,7 @@ class P2PConnector {
 
         pc.onconnectionstatechange = () => {
           const state = pc.connectionState.toLowerCase();
+          this.logDiag(`Peer state: ${state}`);
           if (state === 'failed' || state === 'closed' || state === 'disconnected') {
             this.handleConnectionFailure();
           } else if (state === 'connected') {
@@ -77,7 +64,7 @@ class P2PConnector {
           }
         };
 
-        const channel = pc.createDataChannel('ctrl');
+        const channel = pc.createDataChannel('ctrl', { ordered: true });
         this.dataChannel = channel;
         this.setupDataChannelEvents(channel);
 
@@ -85,58 +72,81 @@ class P2PConnector {
         await pc.setLocalDescription(offer);
         await this.waitForIceGathering(pc);
 
-        const bakedOffer = encodeURIComponent(JSON.stringify({
-          sdp: pc.localDescription,
-          sid: this.connectionSessionId
-        }));
+        const offerMessage = {
+          from: 'host',
+          type: 'offer',
+          sid: this.connectionSessionId,
+          sdp: pc.localDescription
+        };
 
-        this.updateStatus('Broadcasting host offer...', '#90a4ae');
+        const broadcastOffer = async () => {
+          if (this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified) {
+            return;
+          }
+          try {
+            await fetch(`${SIGNAL_BASE}/${signalTopic}`, {
+              method: 'POST',
+              body: JSON.stringify(offerMessage)
+            });
+          } catch (err) {}
+        };
 
-        // Added cache-busting timestamp
-        fetch(`${SIGNAL_BASE}/${hostTopic}?_=${Date.now()}`, { method: 'POST', body: bakedOffer })
-          .catch(e => console.warn('Offer post error:', e));
+        this.updateStatus('Broadcasting offer to relay...', '#90a4ae');
+        await broadcastOffer();
 
-        this.hostBeaconInterval = setInterval(async () => {
+        // EventSource (SSE) listens for real-time answer from phone
+        try {
+          const sseUrl = `${SIGNAL_BASE}/${signalTopic}/sse`;
+          this._signalEventSource = new EventSource(sseUrl);
+
+          this._signalEventSource.onmessage = async (event) => {
+            try {
+              const raw = JSON.parse(event.data);
+              const payload = typeof raw.message === 'string' ? JSON.parse(raw.message) : raw;
+              if (!payload || payload.from !== 'client') return;
+
+              if (payload.type === 'client-ready') {
+                this.logDiag('Client announced presence. Resending offer.');
+                broadcastOffer();
+                return;
+              }
+
+              if (payload.type === 'answer' && payload.sdp) {
+                if (payload.sid !== this.connectionSessionId) {
+                  this.logDiag(`Ignored answer for stale session: ${payload.sid}`);
+                  return;
+                }
+                if (!pc.remoteDescription) {
+                  this.logDiag('Received client answer. Establishing link...');
+                  this.updateStatus('Negotiating transport...', '#0288d1');
+                  await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                }
+              }
+            } catch (e) {}
+          };
+        } catch (e) {
+          this.logDiag(`SSE notice: ${e.message}`);
+        }
+
+        this.hostBeaconInterval = setInterval(() => {
           if (this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified) {
             clearInterval(this.hostBeaconInterval);
             return;
           }
-          try {
-            await fetch(`${SIGNAL_BASE}/${hostTopic}?_=${Date.now()}`, { method: 'POST', body: bakedOffer });
-          } catch(err) {}
-        }, 2000);
+          broadcastOffer();
+        }, 2500);
 
-        this.hostPollInterval = setInterval(async () => {
-          if (this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified) {
-            clearInterval(this.hostPollInterval);
-            return;
-          }
-          try {
-            const res = await fetch(`${SIGNAL_BASE}/${clientTopic}?_=${Date.now()}`);
-            const text = await res.text();
-            if (!text || text.trim() === '') return;
-            if (!pc.remoteDescription) {
-              const envelope = JSON.parse(decodeURIComponent(text));
-              if (!envelope.sdp) return;
-              if (envelope.sid !== this.connectionSessionId) return;
-              await pc.setRemoteDescription(envelope.sdp);
-              this.updateStatus('Negotiating transport...', '#0288d1');
-              clearInterval(this.hostPollInterval);
-            }
-          } catch(err) {
-            console.warn('Answer poll error:', err);
-          }
-        }, 1500);
-
-      } catch(err) {
+      } catch (err) {
         this.updateStatus('Setup error: ' + err.message, '#ff4444');
         this.handleConnectionFailure();
       }
     }
-
     waitForIceGathering(pc) {
       return new Promise((resolve) => {
-        if (pc.iceGatheringState === 'complete') { resolve(); return; }
+        if (pc.iceGatheringState === 'complete') {
+          resolve();
+          return;
+        }
         let resolved = false;
         const done = () => {
           if (resolved) return;
@@ -148,10 +158,9 @@ class P2PConnector {
           if (pc.iceGatheringState === 'complete') done();
         };
         pc.addEventListener('icegatheringstatechange', checkState);
-        setTimeout(done, 1000);
+        setTimeout(done, 2200);
       });
     }
-
     setupDataChannelEvents(channel) {
       channel.onopen = () => {
         this.updateStatus('Data channel open. Verifying...', '#0288d1');
@@ -274,8 +283,13 @@ class P2PConnector {
       this.handshakeInterval = null;
       this.heartbeatInterval = null;
 
+      if (this._signalEventSource) {
+        try { this._signalEventSource.close(); } catch (e) {}
+        this._signalEventSource = null;
+      }
+
       if (this.peerConnection) {
-        try { this.peerConnection.close(); } catch(e) {}
+        try { this.peerConnection.close(); } catch (e) {}
         this.peerConnection = null;
       }
       this.dataChannel = null;
@@ -288,11 +302,12 @@ class P2PConnector {
         this.updateButtonState(false);
       }
     }
-
     getRTCConfig() {
       return {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
           {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
@@ -306,7 +321,6 @@ class P2PConnector {
         ]
       };
     }
-
     destroy() {
       this.cleanupConnection();
     }
@@ -392,7 +406,7 @@ class P2PConnector {
 
     renderControls(container) {
       container.innerHTML = '';
-      
+
       const content = document.createElement('div');
       content.style.cssText = 'padding: 12px; display: flex; flex-direction: column; gap: 10px; color: #ddd; font-family: sans-serif; font-size: 12px;';
 
@@ -406,33 +420,31 @@ class P2PConnector {
       const roomInput = document.createElement('input');
       roomInput.type = 'text';
       roomInput.value = this.roomCode || localStorage.getItem('drawing-app-p2p-room') || '7777';
-      roomInput.style.cssText = 'width: 80px; padding: 4px; background: #222; border: 1px solid #555; color: #fff; border-radius: 3px; text-align: center;';
+      roomInput.style.cssText = 'width: 80px; padding: 4px; background: #222; border: 1px solid #555; color: #fff; border-radius: 3px; text-align: center; font-weight: bold; font-family: monospace; font-size: 13px;';
 
       roomRow.appendChild(roomLabel);
       roomRow.appendChild(roomInput);
       content.appendChild(roomRow);
 
-      // Embedded QR Code White Card Container
       const qrBox = document.createElement('div');
-      qrBox.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ffffff; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 8px 0;';
-      
+      qrBox.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ffffff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 4px 0;';
+
       const qrContainer = document.createElement('div');
       qrContainer.style.cssText = 'width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; background: #ffffff; box-sizing: border-box; overflow: hidden; cursor: pointer;';
-      qrContainer.title = 'Click to enlarge for scanning';
+      qrContainer.title = 'Click to enlarge for phone camera';
       qrBox.appendChild(qrContainer);
 
-      // Click to open high-contrast, pure-white pop-up dialog
       qrContainer.onclick = (e) => {
         e.preventDefault();
         const room = roomInput.value.trim();
         if (!room) return;
-        
-        const pairURL = `https://recursi.dev/TouchController/index.html?room=${room}`;
+
+        const pairURL = this.getPairURL(room);
         const activeEnv = this.receiver.env || this.receiver;
 
         const popup = UITools.makeDialog({
           env: activeEnv,
-          title: 'Scan QR Code',
+          title: 'Scan QR with Phone',
           size: [240, 240],
           position: [window.innerWidth / 2 - 120, window.innerHeight / 2 - 120],
         });
@@ -440,24 +452,14 @@ class P2PConnector {
         if (popup && popup.element) {
           popup.element.style.setProperty('background-color', '#ffffff', 'important');
           popup.element.style.setProperty('border', '1px solid #cbd5e1', 'important');
-          popup.element.style.setProperty('box-shadow', '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', 'important');
           popup.element.style.setProperty('border-radius', '10px', 'important');
         }
-
-        if (popup && popup.headerElement) {
-          popup.headerElement.style.setProperty('background', '#f8fafc', 'important');
-          popup.headerElement.style.setProperty('border-bottom', '1px solid #cbd5e1', 'important');
-          popup.headerElement.style.setProperty('color', '#1e293b', 'important');
-          popup.headerElement.style.setProperty('border-radius', '10px 10px 0 0', 'important');
-        }
-
         if (popup && popup.contentElement) {
           popup.contentElement.style.setProperty('background', '#ffffff', 'important');
           popup.contentElement.style.setProperty('display', 'flex', 'important');
           popup.contentElement.style.setProperty('align-items', 'center', 'important');
           popup.contentElement.style.setProperty('justify-content', 'center', 'important');
           popup.contentElement.style.setProperty('padding', '20px', 'important');
-          popup.contentElement.style.setProperty('border-radius', '0 0 10px 10px', 'important');
 
           const popupQR = document.createElement('div');
           popupQR.style.cssText = 'width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; background: #ffffff;';
@@ -470,22 +472,51 @@ class P2PConnector {
       };
 
       const qrLinkDisplay = document.createElement('div');
-      qrLinkDisplay.style.cssText = 'font-size: 9px; color: #475569; text-align: center; margin-top: 8px; word-break: break-all; width: 100%; font-family: monospace; font-weight: bold;';
+      qrLinkDisplay.style.cssText = 'font-size: 10px; color: #0284c7; text-align: center; margin-top: 8px; word-break: break-all; width: 100%; font-family: monospace; font-weight: bold; cursor: pointer; text-decoration: underline;';
+      qrLinkDisplay.title = 'Click to copy full pairing URL';
       qrBox.appendChild(qrLinkDisplay);
+
+      const buttonRow = document.createElement('div');
+      buttonRow.style.cssText = 'display: flex; gap: 6px; margin-top: 6px; width: 100%; justify-content: center;';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = 'Copy Link';
+      copyBtn.style.cssText = 'padding: 3px 8px; font-size: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #334155; font-weight: bold;';
+
+      const openBtn = document.createElement('button');
+      openBtn.textContent = 'Open in Tab ↗';
+      openBtn.style.cssText = 'padding: 3px 8px; font-size: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #334155; font-weight: bold;';
+
+      buttonRow.appendChild(copyBtn);
+      buttonRow.appendChild(openBtn);
+      qrBox.appendChild(buttonRow);
       content.appendChild(qrBox);
 
       const updateQRCanvas = () => {
         const room = roomInput.value.trim();
         if (!room) return;
         localStorage.setItem('drawing-app-p2p-room', room);
-        
-        const pairURL = `https://recursi.dev/TouchController/index.html?room=${room}`;
-        qrLinkDisplay.textContent = `Pair Link: /?room=${room}`;
-        
+
+        const pairURL = this.getPairURL(room);
+        qrLinkDisplay.textContent = pairURL;
+
+        copyBtn.onclick = (e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(pairURL).then(() => {
+            copyBtn.textContent = '✓ Copied!';
+            setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 2000);
+          });
+        };
+
+        openBtn.onclick = (e) => {
+          e.stopPropagation();
+          window.open(pairURL, '_blank');
+        };
+
+        qrLinkDisplay.onclick = copyBtn.onclick;
+
         if (typeof QRCodeGenerator !== 'undefined') {
           QRCodeGenerator.drawSVG(pairURL, qrContainer);
-        } else {
-          console.warn("QRCodeGenerator class not defined at runtime");
         }
       };
 
@@ -498,7 +529,7 @@ class P2PConnector {
       };
 
       const connectBtn = document.createElement('button');
-      connectBtn.style.cssText = 'padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: all 0.15s;';
+      connectBtn.style.cssText = 'padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: all 0.15s; margin-top: 4px;';
       this.connectBtn = connectBtn;
       content.appendChild(connectBtn);
 
@@ -507,60 +538,19 @@ class P2PConnector {
       this.statusLabel = statusLabel;
       content.appendChild(statusLabel);
 
-      // Dedicated MIDI Controller option block inside the Controller panel
-      const midiRow = document.createElement('div');
-      midiRow.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #444;';
-
-      const midiCheckbox = document.createElement('input');
-      midiCheckbox.type = 'checkbox';
-      midiCheckbox.id = 'midi-controller-toggle-sidebar';
-      midiCheckbox.style.cursor = 'pointer';
-      const midiEnabled = localStorage.getItem('midi-controller-enabled') === 'true';
-      midiCheckbox.checked = midiEnabled;
-
-      const midiLabel = document.createElement('label');
-      midiLabel.htmlFor = 'midi-controller-toggle-sidebar';
-      midiLabel.textContent = 'Enable MIDI Controller';
-      midiLabel.style.cssText = 'cursor: pointer; font-size: 11px; color: #bbb;';
-
-      midiRow.appendChild(midiCheckbox);
-      midiRow.appendChild(midiLabel);
-      content.appendChild(midiRow);
-
-      midiCheckbox.onchange = () => {
-        const enabled = midiCheckbox.checked;
-        localStorage.setItem('midi-controller-enabled', enabled ? 'true' : 'false');
-        if (enabled) {
-          if (!this.receiver.midiMapper) {
-            this.receiver.midiMapper = new MidiMapper(this.receiver.sidePanel.toolSettingsSection, this.receiver);
-          }
-          this.receiver.midiMapper.activate();
-        } else {
-          if (this.receiver.midiMapper) {
-            this.receiver.midiMapper.deactivate();
-          }
-        }
-
-        // Dynamically hide/show MIDI assignment controls on all sliders reactively using centralized syncAllDisplay()
-        if (typeof SliderControl !== 'undefined' && typeof SliderControl.syncAllDisplay === 'function') {
-          SliderControl.syncAllDisplay();
-        }
-      };
-
+      // Diagnostics row
       const diagRow = document.createElement('div');
-      diagRow.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #444;';
-
+      diagRow.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #333;';
       const diagCheckbox = document.createElement('input');
       diagCheckbox.type = 'checkbox';
       diagCheckbox.id = 'p2p-diag-toggle-sidebar';
       diagCheckbox.style.cursor = 'pointer';
       diagCheckbox.checked = this.showDiagnosticsInline || false;
-      
+
       const diagLabel = document.createElement('label');
       diagLabel.htmlFor = 'p2p-diag-toggle-sidebar';
-      diagLabel.textContent = 'Show diagnostics';
+      diagLabel.textContent = 'Show diagnostics log';
       diagLabel.style.cssText = 'cursor: pointer; font-size: 11px; color: #bbb;';
-
       diagRow.appendChild(diagCheckbox);
       diagRow.appendChild(diagLabel);
       content.appendChild(diagRow);
@@ -571,7 +561,7 @@ class P2PConnector {
         display: ${this.showDiagnosticsInline ? 'block' : 'none'};
         background: #090a0f; border: 1px solid #113311; border-radius: 4px; padding: 8px;
         font-family: monospace; font-size: 10px; color: #00ff66; line-height: 1.4;
-        margin-top: 8px; width: 100%; box-sizing: border-box; height: 120px; overflow-y: auto;
+        margin-top: 6px; width: 100%; box-sizing: border-box; height: 120px; overflow-y: auto;
       `;
       content.appendChild(diagContainer);
 
@@ -598,11 +588,8 @@ class P2PConnector {
       };
 
       container.appendChild(content);
-      
-      // Paint the QR Canvas on load
       updateQRCanvas();
 
-      // AUTO LAUNCH HOST SYNC ON RENDER (so both accuCad and DrawingApp start listening instantly)
       if (!this.isHostMode && !this._hostConnecting) {
         const room = roomInput.value.trim();
         if (room) {
@@ -614,7 +601,6 @@ class P2PConnector {
         }
       }
     }
-
     logDiag(text) {
       const container = document.getElementById('p2p-diag-container-sidebar');
       if (container) {
@@ -718,4 +704,37 @@ class P2PConnector {
         console.error("Failed to export QR code as PNG:", err);
       }
     }
+
+  getPairURL(roomCode) {
+    const room = roomCode || this.roomCode || '7777';
+    const customBase = localStorage.getItem('accucad-p2p-client-base-url');
+    if (customBase && customBase.trim()) {
+      let clean = customBase.trim().replace(/\/*$/, '');
+      if (!clean.endsWith('.html') && !clean.endsWith('/')) {
+        clean += '/index.html';
+      }
+      const sep = clean.includes('?') ? '&' : '?';
+      return `${clean}${sep}room=${encodeURIComponent(room)}`;
+    }
+
+    const loc = window.location;
+    let path = loc.pathname;
+    if (path.endsWith('/index.html')) {
+      path = path.slice(0, -'/index.html'.length);
+    }
+
+    // Point to sibling TouchController repository on GitHub Pages
+    if (/\/accuCad\/?$/i.test(path)) {
+      path = path.replace(/\/accuCad\/?$/i, '/TouchController');
+    } else {
+      path = path.replace(/\/+$/, '') + '/TouchController';
+    }
+
+    if (!path.startsWith('/')) path = '/' + path;
+    if (!path.endsWith('.html')) {
+      path = path.replace(/\/+$/, '') + '/index.html';
+    }
+
+    return `${loc.origin}${path}?room=${encodeURIComponent(room)}`;
+  }
 }

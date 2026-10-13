@@ -57,12 +57,9 @@ class InstrumentSounds {
   }
 
   async ensureAudioReady() {
-    await this.resumeContext();
-    if (this.tracks[0] && this.tracks[0].instrument) {
-      await this.setActiveInstrument(this.tracks[0].instrument);
+      // Only resume the AudioContext; soundfonts are lazy-loaded upon noteOn()
+      await this.resumeContext();
     }
-  }
-
   resumeContext() {
     if (this.audioContext && this.audioContext.state === 'suspended') {
       return this.audioContext.resume();
