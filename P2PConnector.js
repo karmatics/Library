@@ -17,124 +17,166 @@ class P2PConnector {
     }
 
     async startWirelessHost(roomCode, statusLabel, isAutoRestart = false) {
-      this.roomCode = roomCode;
-      this.statusLabel = statusLabel;
-      this.isHostMode = true;
+          this.roomCode = roomCode;
+          this.statusLabel = statusLabel;
+          this.isHostMode = true;
 
-      if (!isAutoRestart) {
-        this.connectionSessionId = Math.random().toString(36).substring(2, 9);
-        this._hostConnecting = true;
-        this.updateStatus('Initializing connection...', '#aaa');
-        this.logDiag(`Starting Host Sync [Room: ${roomCode}]`);
-      } else {
-        this.updateStatus('Re-advertising host sync...', '#ffa726');
-      }
-
-      this.updateButtonState(true);
-      this.cleanupConnection(true);
-
-      try {
-        const pc = new RTCPeerConnection(this.getRTCConfig());
-        this.peerConnection = pc;
-
-        pc.oniceconnectionstatechange = () => {
-          const s = pc.iceConnectionState.toLowerCase();
-          this.updateStatus(`Routes: ${s}`, '#90a4ae');
-          this.logDiag(`ICE state: ${s}`);
-          if (s === 'failed') {
-            this.updateStatus('Routes failed. Reconnecting...', '#ff4444');
-            this.handleConnectionFailure();
+          if (!isAutoRestart) {
+            this.connectionSessionId = Math.random().toString(36).substring(2, 9);
+            this._hostConnecting = true;
+            this.updateStatus('Initializing connection...', '#aaa');
+            this.logDiag(`Starting Host Sync [Room: ${roomCode}]`);
+          } else {
+            this.updateStatus('Re-advertising host sync...', '#ffa726');
           }
-        };
 
-        pc.onconnectionstatechange = () => {
-          const state = pc.connectionState.toLowerCase();
-          this.logDiag(`Peer state: ${state}`);
-          if (state === 'failed' || state === 'closed' || state === 'disconnected') {
-            this.handleConnectionFailure();
-          } else if (state === 'connected') {
-            if (!this.isVerified) {
-              this.updateStatus('Transport established. Verifying...', '#0288d1');
+          this.updateButtonState(true);
+          this.cleanupConnection(true);
+
+          try {
+            const pc = new RTCPeerConnection(this.getRTCConfig());
+            this.peerConnection = pc;
+
+            pc.oniceconnectionstatechange = () => {
+              const s = pc.iceConnectionState.toLowerCase();
+              this.updateStatus(`Routes: ${s}`, '#90a4ae');
+              this.logDiag(`ICE state: ${s}`);
+              if (s === 'failed') {
+                this.updateStatus('Routes failed. Reconnecting...', '#ff4444');
+                this.handleConnectionFailure();
+              }
+            };
+
+            pc.onconnectionstatechange = () => {
+              const state = pc.connectionState.toLowerCase();
+              this.logDiag(`Peer state: ${state}`);
+              if (state === 'failed' || state === 'closed' || state === 'disconnected') {
+                this.handleConnectionFailure();
+              } else if (state === 'connected') {
+                if (!this.isVerified) {
+                  this.updateStatus('Transport established. Verifying...', '#0288d1');
+                }
+              }
+            };
+
+            const channel = pc.createDataChannel('ctrl', { ordered: true });
+            this.dataChannel = channel;
+            this.setupDataChannelEvents(channel);
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await this.waitForIceGathering(pc);
+
+            const offerMessage = {
+              from: 'host',
+              type: 'offer',
+              room: roomCode,
+              sid: this.connectionSessionId,
+              sdp: pc.localDescription
+            };
+
+            // Determine host IP for local signaling server (port 3000)
+            let localHost = window.location.hostname;
+            if (localHost === 'localhost' || localHost === '127.0.0.1') {
+              localHost = localStorage.getItem('accucad-p2p-host-ip') || '10.0.0.226';
             }
-          }
-        };
 
-        const channel = pc.createDataChannel('ctrl', { ordered: true });
-        this.dataChannel = channel;
-        this.setupDataChannelEvents(channel);
+            const localSignalEndpoint = `http://${localHost}:3000/${roomCode}`;
+            const fallbackSignalEndpoint = `https://ntfy.sh/accucad-p2p-${roomCode}`;
 
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await this.waitForIceGathering(pc);
+            // Function to post signal to both endpoints
+            const broadcastSignal = async (payload) => {
+              const bodyStr = JSON.stringify(payload);
+              try {
+                await fetch(localSignalEndpoint, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: bodyStr
+                });
+              } catch (e) {}
 
-        const offerMessage = {
-          from: 'host',
-          type: 'offer',
-          room: roomCode,
-          sid: this.connectionSessionId,
-          sdp: pc.localDescription
-        };
+              try {
+                await fetch(fallbackSignalEndpoint, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: bodyStr
+                });
+              } catch (e) {}
+            };
 
-        // Public resilient WebSocket signaling relay: sub-100ms latency, zero ISP timeouts
-        const wsRelayUrl = `wss://socketsbay.com/wss/v2/1/demo/`;
-        let ws = null;
-
-        try {
-          ws = new WebSocket(wsRelayUrl);
-          this._signalWebSocket = ws;
-
-          ws.onopen = () => {
-            this.logDiag('Connected to signaling relay');
-            ws.send(JSON.stringify(offerMessage));
-          };
-
-          ws.onmessage = async (e) => {
-            try {
-              const payload = JSON.parse(e.data);
+            // Message handler for incoming responses from phone
+            const handleIncomingPayload = async (payload) => {
               if (!payload || payload.room !== roomCode || payload.from !== 'client') return;
 
               if (payload.type === 'client-ready') {
-                this.logDiag('Client ready. Sending offer.');
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify(offerMessage));
-                }
+                this.logDiag('Client ready detected. Broadcasting offer.');
+                broadcastSignal(offerMessage);
                 return;
               }
 
               if (payload.type === 'answer' && payload.sdp) {
                 if (payload.sid !== this.connectionSessionId) return;
                 if (!pc.remoteDescription) {
-                  this.logDiag('Received answer from phone. Connecting...');
+                  this.logDiag('Received SDP answer from phone. Establishing connection...');
                   this.updateStatus('Negotiating transport...', '#0288d1');
                   await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
                 }
               }
+            };
+
+            // Connect SSE listener to local signal server
+            try {
+              const esLocal = new EventSource(localSignalEndpoint);
+              this._signalEventSourceLocal = esLocal;
+
+              esLocal.onmessage = (e) => {
+                try {
+                  const raw = JSON.parse(e.data);
+                  const data = (raw && raw.message) ? JSON.parse(raw.message) : raw;
+                  handleIncomingPayload(data);
+                } catch (err) {}
+              };
+
+              esLocal.onopen = () => {
+                this.logDiag('Connected to local LAN signal server (port 3000)');
+                broadcastSignal(offerMessage);
+              };
             } catch (err) {}
-          };
-        } catch (wsErr) {
-          this.logDiag(`WebSocket notice: ${wsErr.message}`);
+
+            // Connect fallback SSE listener directly to ntfy.sh (without allorigins.win)
+            try {
+              const esFallback = new EventSource(`${fallbackSignalEndpoint}/sse`);
+              this._signalEventSourceFallback = esFallback;
+
+              esFallback.onmessage = (e) => {
+                try {
+                  const raw = JSON.parse(e.data);
+                  const data = (raw && raw.message) ? JSON.parse(raw.message) : raw;
+                  handleIncomingPayload(data);
+                } catch (err) {}
+              };
+            } catch (err) {}
+
+            // Broadcast offer immediately
+            broadcastSignal(offerMessage);
+
+            // Keep beaconing offer until channel opens
+            this.hostBeaconInterval = setInterval(() => {
+              if (this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified) {
+                clearInterval(this.hostBeaconInterval);
+                this.hostBeaconInterval = null;
+                return;
+              }
+              broadcastSignal(offerMessage);
+            }, 1500);
+
+            this.updateStatus('Awaiting controller link...', '#90a4ae');
+
+          } catch (err) {
+            this.updateStatus('Setup error: ' + err.message, '#ff4444');
+            this.handleConnectionFailure();
+          }
         }
-
-        // Backup HTTP broadcasting (fallback relay)
-        const backupRelayUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://ntfy.sh/accucad-p2p-' + roomCode)}`;
-
-        this.hostBeaconInterval = setInterval(() => {
-          if (this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified) {
-            clearInterval(this.hostBeaconInterval);
-            return;
-          }
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(offerMessage));
-          }
-        }, 2000);
-
-        this.updateStatus('Awaiting controller link...', '#90a4ae');
-
-      } catch (err) {
-        this.updateStatus('Setup error: ' + err.message, '#ff4444');
-        this.handleConnectionFailure();
-      }
-    }
     waitForIceGathering(pc) {
       return new Promise((resolve) => {
         if (pc.iceGatheringState === 'complete') {
@@ -266,41 +308,48 @@ class P2PConnector {
       }
     }
 
-    cleanupConnection(keepAdvertisingState = false) {
-      if (this.hostBeaconInterval) clearInterval(this.hostBeaconInterval);
-      if (this.hostPollInterval) clearInterval(this.hostPollInterval);
-      if (this.handshakeInterval) clearInterval(this.handshakeInterval);
-      if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+    cleanupConnection(suppressStatus = false) {
+        if (this._signalEventSourceLocal) {
+          try { this._signalEventSourceLocal.close(); } catch (e) {}
+          this._signalEventSourceLocal = null;
+        }
+        if (this._signalEventSourceFallback) {
+          try { this._signalEventSourceFallback.close(); } catch (e) {}
+          this._signalEventSourceFallback = null;
+        }
+        if (this._signalWebSocket) {
+          try { this._signalWebSocket.close(); } catch (e) {}
+          this._signalWebSocket = null;
+        }
+        if (this.hostBeaconInterval) {
+          clearInterval(this.hostBeaconInterval);
+          this.hostBeaconInterval = null;
+        }
+        if (this.pingInterval) {
+          clearInterval(this.pingInterval);
+          this.pingInterval = null;
+        }
+        if (this.verificationTimeout) {
+          clearTimeout(this.verificationTimeout);
+          this.verificationTimeout = null;
+        }
+        if (this.dataChannel) {
+          try { this.dataChannel.close(); } catch (e) {}
+          this.dataChannel = null;
+        }
+        if (this.peerConnection) {
+          try { this.peerConnection.close(); } catch (e) {}
+          this.peerConnection = null;
+        }
 
-      this.hostBeaconInterval = null;
-      this.hostPollInterval = null;
-      this.handshakeInterval = null;
-      this.heartbeatInterval = null;
+        this.isVerified = false;
+        this._hostConnecting = false;
 
-      if (this._signalWebSocket) {
-        try { this._signalWebSocket.close(); } catch (e) {}
-        this._signalWebSocket = null;
+        if (!suppressStatus) {
+          this.updateStatus('Offline', '#aaa');
+          this.updateButtonState(false);
+        }
       }
-
-      if (this._signalEventSource) {
-        try { this._signalEventSource.close(); } catch (e) {}
-        this._signalEventSource = null;
-      }
-
-      if (this.peerConnection) {
-        try { this.peerConnection.close(); } catch (e) {}
-        this.peerConnection = null;
-      }
-      this.dataChannel = null;
-      this.isVerified = false;
-      this._hostConnecting = false;
-
-      if (!keepAdvertisingState) {
-        this.isHostMode = false;
-        this.roomCode = '';
-        this.updateButtonState(false);
-      }
-    }
     getRTCConfig() {
       return {
         iceServers: [
@@ -705,35 +754,47 @@ class P2PConnector {
     }
 
   getPairURL(roomCode) {
-    const room = roomCode || this.roomCode || '7777';
-    const customBase = localStorage.getItem('accucad-p2p-client-base-url');
-    if (customBase && customBase.trim()) {
-      let clean = customBase.trim().replace(/\/*$/, '');
-      if (!clean.endsWith('.html') && !clean.endsWith('/')) {
-        clean += '/index.html';
+      const room = roomCode || this.roomCode || '7777';
+      const customBase = localStorage.getItem('accucad-p2p-client-base-url');
+      if (customBase && customBase.trim()) {
+        let clean = customBase.trim().replace(/\/*$/, '');
+        if (!clean.endsWith('.html') && !clean.endsWith('/')) {
+          clean += '/index.html';
+        }
+        const sep = clean.includes('?') ? '&' : '?';
+        return `${clean}${sep}room=${encodeURIComponent(room)}`;
       }
-      const sep = clean.includes('?') ? '&' : '?';
-      return `${clean}${sep}room=${encodeURIComponent(room)}`;
-    }
 
-    const loc = window.location;
-    let path = loc.pathname;
-    if (path.endsWith('/index.html')) {
-      path = path.slice(0, -'/index.html'.length);
-    }
+      const loc = window.location;
+      let host = loc.hostname;
 
-    // Point to sibling TouchController repository on GitHub Pages
-    if (/\/accuCad\/?$/i.test(path)) {
-      path = path.replace(/\/accuCad\/?$/i, '/TouchController');
-    } else {
-      path = path.replace(/\/+$/, '') + '/TouchController';
-    }
+      // Replace localhost or loopback with verified local LAN IP for phone cameras
+      if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+        const storedIp = localStorage.getItem('accucad-p2p-host-ip');
+        host = storedIp || '10.0.0.226';
+      }
 
-    if (!path.startsWith('/')) path = '/' + path;
-    if (!path.endsWith('.html')) {
-      path = path.replace(/\/+$/, '') + '/index.html';
-    }
+      const port = loc.port ? `:${loc.port}` : '';
+      const protocol = loc.protocol || 'http:';
 
-    return `${loc.origin}${path}?room=${encodeURIComponent(room)}`;
-  }
+      let path = loc.pathname;
+      if (path.endsWith('/index.html')) {
+        path = path.slice(0, -'/index.html'.length);
+      }
+
+      if (/\/accuCad\/?$/i.test(path)) {
+        path = path.replace(/\/accuCad\/?$/i, '/TouchController');
+      } else if (/\/CadPlan\/?$/i.test(path)) {
+        path = path.replace(/\/CadPlan\/?$/i, '/TouchController');
+      } else {
+        path = path.replace(/\/+$/, '') + '/TouchController';
+      }
+
+      if (!path.startsWith('/')) path = '/' + path;
+      if (!path.endsWith('.html')) {
+        path = path.replace(/\/+$/, '') + '/index.html';
+      }
+
+      return `${protocol}//${host}${port}${path}?room=${encodeURIComponent(room)}&host=${encodeURIComponent(host)}`;
+    }
 }
