@@ -1,38 +1,28 @@
 class DictationWidget {
+  constructor(options = {}) {
+    this.options = options || {};
+    this.placeholder = this.options.placeholder || 'Click "Start Listening" to dictate notes or type here...';
+    this.compact = !!this.options.compact;
+    this.init();
+  }
+
   editorBox = null;
-
   editorContent = null;
-
   controlBox = null;
-
   statusDiv = null;
-
   recognition = null;
-
   isListening = false;
-
   modifierHeld = false;
-
   lastRange = null;
-
   lastCaretRect = null;
-
   popupElement = null;
-
   popupTextElement = null;
-
   popupSvgPath = null;
-
   popupSvgConnector = null;
-
   isPopupVisible = false;
-
   tokenSerialCounter = 1;
-
   lastTokens = [];
-
   pendingPunct = [];
-
   subscribers = new Set();
 
   punctMap = {
@@ -67,15 +57,11 @@ class DictationWidget {
 
   subscribe(callback) {
     this.subscribers.add(callback);
-    // Immediately notify with current state
     const content = this.editorContent ? this.editorContent.textContent : '';
     try {
       callback(content);
     } catch (e) {
-      console.error(
-        'Error in initial DictationWidget subscription notification:',
-        e
-      );
+      console.error('Error in initial DictationWidget subscription notification:', e);
     }
   }
 
@@ -85,10 +71,6 @@ class DictationWidget {
 
   _notifySubscribers() {
     const content = this.editorContent ? this.editorContent.textContent : '';
-    if (window.projectApp) {
-      // Cache the last content before notifying, so consumers can use it
-      // if this notification is part of an "onClose" event.
-    }
     for (const callback of this.subscribers) {
       try {
         callback(content);
@@ -100,15 +82,50 @@ class DictationWidget {
 
   setupUI() {
     const controlsContainer = makeElement('div', {
+      className: 'dictation-controls-bar',
       style: {
-        padding: '10px',
+        padding: this.compact ? '6px 10px' : '8px 12px',
         display: 'flex',
         alignItems: 'center',
-        gap: '10px',
-        backgroundColor: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--border-color)',
+        gap: '8px',
+        backgroundColor: '#161e2b',
+        borderBottom: '1px solid #232d3f',
+        flexWrap: 'wrap'
       },
     });
+
+    this.toggleListenBtn = makeElement(
+      'button',
+      {
+        className: 'dictation-btn-listen',
+        onclick: () => this.toggleListening(),
+        style: {
+          padding: this.compact ? '5px 12px' : '6px 14px',
+          fontWeight: '700',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          backgroundColor: '#1b3320',
+          border: '1px solid #2e4a32',
+          color: '#8abf8e',
+          fontSize: this.compact ? '11px' : '12px',
+          fontFamily: 'monospace',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px'
+        },
+        onmouseenter: (e) => {
+          if (!this.isListening) {
+            e.currentTarget.style.backgroundColor = '#264a2e';
+            e.currentTarget.style.color = '#fff';
+          }
+        },
+        onmouseleave: () => {
+          this.updateButtonStates();
+        },
+      },
+      'Start Listening'
+    );
 
     this.clearBtn = makeElement(
       'button',
@@ -119,106 +136,59 @@ class DictationWidget {
           backgroundColor: '#3a1c1c',
           color: '#bd8a8a',
           border: '1px solid #5e2a2a',
-          borderRadius: '4px',
-          padding: '6px 12px',
+          borderRadius: '6px',
+          padding: this.compact ? '4px 8px' : '5px 10px',
           cursor: 'pointer',
           fontWeight: '600',
-          transition: 'all 0.2s ease',
+          fontSize: this.compact ? '11px' : '12px',
+          fontFamily: 'monospace',
+          transition: 'all 0.15s ease',
         },
         onmouseenter: (e) => {
-          e.target.style.backgroundColor = '#4a2c2c';
-          e.target.style.color = '#fff';
+          e.currentTarget.style.backgroundColor = '#4a2c2c';
+          e.currentTarget.style.color = '#fff';
         },
         onmouseleave: (e) => {
-          e.target.style.backgroundColor = '#3a1c1c';
-          e.target.style.color = '#bd8a8a';
+          e.currentTarget.style.backgroundColor = '#3a1c1c';
+          e.currentTarget.style.color = '#bd8a8a';
         },
       },
       'Clear'
     );
 
-    this.toggleListenBtn = makeElement(
-      'button',
-      {
-        onclick: () => this.toggleListening(),
-        style: {
-          padding: '6px 16px',
-          fontWeight: '600',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          backgroundColor: '#1b3320',
-          border: '1px solid #2e4a32',
-          color: '#8abf8e',
-        },
-        onmouseenter: (e) => {
-          if (this.isListening) {
-            e.target.style.backgroundColor = '#4a1b1b';
-            e.target.style.color = '#fff';
-          } else {
-            e.target.style.backgroundColor = '#264a2e';
-            e.target.style.color = '#fff';
-          }
-        },
-        onmouseleave: (e) => {
-          this.updateButtonStates();
-        },
-      },
-      'Start Listening'
-    );
-
     this.statusDiv = makeElement('div', {
+      className: 'dictation-status-div',
       style: {
         fontStyle: 'italic',
-        color: 'var(--text-secondary)',
-        margin: '0 10px',
+        color: '#94a3b8',
+        margin: '0 4px',
         flex: '1',
+        fontSize: this.compact ? '11px' : '12px',
+        fontFamily: 'monospace',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
       },
     });
 
     this.copyButton = makeElement(
       'button',
       {
-        className: 'dictation-copy-btn',
+        className: 'dr-nav-btn',
+        style: { padding: this.compact ? '4px 8px' : '5px 10px', fontSize: this.compact ? '11px' : '12px' },
         onclick: (e) => this.copyContent(e),
       },
       'Copy'
     );
 
-    // UPDATED LABEL
-    this.magicSendBtn = makeElement(
-      'button',
-      {
-        className: 'dictation-magic-btn',
-        onclick: (e) => this.magicSendContent(e),
-        style: {
-          display: 'none',
-          backgroundColor: '#00695c',
-          borderColor: '#004d40',
-          color: '#ffffff',
-          marginLeft: '5px',
-          fontWeight: 'bold',
-        },
-        title: 'Send text directly to Gemini',
-      },
-      '🚀 Send to Gemini'
-    );
-
     this.toggleEditBtn = makeElement(
       'button',
-      { onclick: () => this.toggleEditMode() },
+      {
+        className: 'dr-nav-btn',
+        style: { padding: this.compact ? '4px 8px' : '5px 10px', fontSize: this.compact ? '11px' : '12px' },
+        onclick: () => this.toggleEditMode()
+      },
       'Quick Edit'
-    );
-
-    const tooltipText = 'Enter Quick Edit mode...';
-    this.toggleEditBtn.addEventListener('mouseover', () =>
-      GlowingTooltip.show(this.toggleEditBtn, tooltipText, {
-        color: [255, 152, 0],
-        maxWidth: 350,
-      })
-    );
-    this.toggleEditBtn.addEventListener('mouseout', () =>
-      GlowingTooltip.hide()
     );
 
     controlsContainer.append(
@@ -226,23 +196,27 @@ class DictationWidget {
       this.toggleListenBtn,
       this.statusDiv,
       this.copyButton,
-      this.magicSendBtn,
       this.toggleEditBtn
     );
 
     this.editorContent = makeElement('div', {
       contentEditable: true,
+      className: 'dictation-editor-content',
+      'data-placeholder': this.placeholder,
       style: {
         height: '100%',
+        minHeight: this.compact ? '100px' : '140px',
         outline: 'none',
         whiteSpace: 'pre-wrap',
-        fontSize: '1rem',
-        lineHeight: '1.5',
-        color: 'var(--text-primary)',
-        padding: '10px',
+        fontSize: this.compact ? '13px' : '14px',
+        lineHeight: '1.6',
+        color: '#f8fafc',
+        padding: '12px',
         boxSizing: 'border-box',
         flex: '1',
         overflowY: 'auto',
+        background: '#090d16',
+        fontFamily: 'var(--dr-font-sans, -apple-system, sans-serif)'
       },
     });
 
@@ -260,7 +234,10 @@ class DictationWidget {
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          backgroundColor: 'var(--bg-tertiary)',
+          backgroundColor: '#090d16',
+          border: '1.5px solid #232d3f',
+          borderRadius: '8px',
+          overflow: 'hidden'
         },
       },
       [controlsContainer, this.editorContent]
@@ -278,7 +255,11 @@ class DictationWidget {
       this.popupTextElement
     );
 
-    this.popupSvgPath = makeElement('svg:path', {});
+    this.popupSvgPath = makeElement('svg:path', {
+      fill: 'none',
+      stroke: '#00ff66',
+      'stroke-width': '2.5'
+    });
 
     this.popupSvgConnector = makeElement(
       'svg:svg',
@@ -290,7 +271,9 @@ class DictationWidget {
           left: '0',
           width: '100vw',
           height: '100vh',
-          display: 'none', // initially hidden
+          display: 'none',
+          pointerEvents: 'none',
+          zIndex: '2147483646'
         },
       },
       this.popupSvgPath
@@ -314,7 +297,6 @@ class DictationWidget {
   showPopup() {
     if (this.isPopupVisible) return;
     this.isPopupVisible = true;
-    // We don't set display block here immediately; positionPopup logic handles display
   }
 
   hidePopup() {
@@ -327,9 +309,7 @@ class DictationWidget {
   positionPopup(caretRect, editorRect) {
     if (!this.isPopupVisible || !caretRect || !editorRect) return;
 
-    // 1. Ensure attached to BODY (Diagnostic fix for "constrained" behavior)
     if (this.popupElement.parentElement !== document.body) {
-      console.warn('DictationWidget: Popup was not on body. Moving it.');
       document.body.appendChild(this.popupElement);
       document.body.appendChild(this.popupSvgConnector);
     }
@@ -338,37 +318,21 @@ class DictationWidget {
     this.popupSvgConnector.style.display = 'block';
     const popupEl = this.popupElement;
 
-    // Force reflow so width/height are measurable
     void popupEl.offsetHeight;
-
     const pWidth = popupEl.offsetWidth;
-    const pHeight = popupEl.offsetHeight;
 
-    // IMPORTANT: caretRect is VIEWPORT coords. Popup is position:fixed, so use VIEWPORT coords.
-    // "Below" means: popup TOP must be > caret bottom, always.
     const gap = 10;
     const desiredTop = caretRect.bottom + gap;
-
-    // Center horizontally around caret
     let desiredLeft = caretRect.left + caretRect.width / 2 - pWidth / 2;
 
-    // Clamp horizontally into viewport
     const pad = 10;
     if (desiredLeft < pad) desiredLeft = pad;
     if (desiredLeft + pWidth > window.innerWidth - pad) {
       desiredLeft = Math.max(pad, window.innerWidth - pad - pWidth);
     }
 
-    // We will NOT clamp upward (ever), because that would violate "below" and cover text.
-    // If it overflows off the bottom of the window, that's acceptable; covering text is not.
-    let finalTop = desiredTop;
-    let finalLeft = desiredLeft;
+    popupEl.style.transform = `translate3d(${Math.round(desiredLeft)}px, ${Math.round(desiredTop)}px, 0)`;
 
-    popupEl.style.transform = `translate3d(${Math.round(
-      finalLeft
-    )}px, ${Math.round(finalTop)}px, 0)`;
-
-    // Draw Connector (now all in viewport coords)
     requestAnimationFrame(() => {
       const finalPopupRect = popupEl.getBoundingClientRect();
       this.drawPopupConnector(caretRect, finalPopupRect, 'top');
@@ -378,16 +342,12 @@ class DictationWidget {
   drawPopupConnector(caretRect, popupRect, anchorSide) {
     if (!this.popupSvgPath) return;
 
-    // Start from the bottom-center of the caret (since we prioritize "below")
     const startX = caretRect.left + caretRect.width / 2;
     const startY = caretRect.bottom;
 
     let endX, endY;
-
-    // Calculate endpoint on box
     switch (anchorSide) {
       case 'top':
-        // Connect to top edge of box, slightly offset to match visual flow
         endX = popupRect.left + popupRect.width / 2;
         endY = popupRect.top;
         break;
@@ -404,28 +364,14 @@ class DictationWidget {
         endY = popupRect.top;
     }
 
-    // Control Points for smooth Bezier
+    const tension = 30;
     let cp1x, cp1y, cp2x, cp2y;
-    const tension = 30; // Length of the control handle
 
     if (anchorSide === 'top') {
-      // Drop down, then curve in
       cp1x = startX;
       cp1y = startY + tension;
       cp2x = endX;
       cp2y = endY - tension;
-    } else if (anchorSide === 'left') {
-      // Curve right to hit left side
-      cp1x = startX;
-      cp1y = startY + tension; // Down first
-      cp2x = endX - tension;
-      cp2y = endY; // Then straight in
-    } else if (anchorSide === 'right') {
-      // Curve left to hit right side
-      cp1x = startX;
-      cp1y = startY + tension;
-      cp2x = endX + tension;
-      cp2y = endY;
     } else {
       cp1x = startX;
       cp1y = startY + 20;
@@ -448,25 +394,19 @@ class DictationWidget {
     void popupEl.offsetHeight;
     const popupRect = popupEl.getBoundingClientRect();
 
-    const targetTop =
-      editorRect.top + editorRect.height / 2 - popupRect.height / 2;
-    const targetLeft =
-      editorRect.left + editorRect.width / 2 - popupRect.width / 2;
+    const targetTop = editorRect.top + editorRect.height / 2 - popupRect.height / 2;
+    const targetLeft = editorRect.left + editorRect.width / 2 - popupRect.width / 2;
 
-    // THE FIX FOR `position: absolute`: Add scroll offsets here as well.
     const finalLeft = targetLeft + window.scrollX;
     const finalTop = targetTop + window.scrollY;
 
     popupEl.style.transform = `translate(${finalLeft}px, ${finalTop}px)`;
   }
 
-
   setupRecognition() {
-    const SpeechAPI =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechAPI) {
-      this.updateStatus('❌ Speech API not supported.');
-      alert('Web Speech API is not supported in this browser.');
+      this.updateStatus('❌ Speech API not supported in this browser.');
       return;
     }
     this.recognition = new SpeechAPI();
@@ -477,23 +417,93 @@ class DictationWidget {
     this.recognition.onresult = (event) => this.handleRecognitionResult(event);
 
     this.recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      this.stopListening();
+      // Ignore normal silence timeouts so speech recognition doesn't stop when pausing
+      if (event.error === 'no-speech' || event.error === 'aborted') {
+        return;
+      }
+      console.warn('[DictationWidget] Speech notice:', event.error);
+      if (event.error === 'not-allowed') {
+        this.updateStatus('❌ Microphone access denied.');
+        this.stopListening();
+      }
     };
 
     this.recognition.onend = () => {
       if (this.isListening) {
-        this.recognition.start();
+        try {
+          this.recognition.start();
+        } catch (e) {
+          setTimeout(() => {
+            if (this.isListening) {
+              try { this.recognition.start(); } catch (err) {}
+            }
+          }, 200);
+        }
+      }
+    };
+
+    // Native speech activity cues that do not interfere with microphone capture
+    this.recognition.onspeechstart = () => {
+      if (this.isListening) {
+        this.statusDiv.textContent = '🎙️ Transcribing voice...';
+      }
+    };
+    this.recognition.onspeechend = () => {
+      if (this.isListening) {
+        this.statusDiv.textContent = '🔴 Listening... (speak now)';
       }
     };
   }
 
+  updateStatus(txt) {
+    if (this.statusDiv) this.statusDiv.textContent = txt;
+  }
 
   stopListening() {
-    if (!this.recognition || !this.isListening) return;
+    if (!this.isListening) return;
     this.isListening = false;
-    this.recognition.stop();
+    if (this.recognition) {
+      try {
+        this.recognition.stop();
+      } catch (e) {}
+    }
     this.updatePopup('');
+    this.updateButtonStates();
+  }
+
+  startListening() {
+    if (!this.recognition) {
+      alert('Speech Recognition API is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+    if (this.isListening) return;
+
+    const sel = window.getSelection();
+    let savedRange = null;
+    if (sel.rangeCount > 0) {
+      const r = sel.getRangeAt(0);
+      if (this.editorContent.contains(r.commonAncestorContainer)) {
+        savedRange = r.cloneRange();
+      }
+    }
+
+    this.editorContent.focus();
+
+    if (savedRange) {
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+      this.lastRange = savedRange;
+    } else {
+      sel.selectAllChildren(this.editorContent);
+      sel.collapseToEnd();
+    }
+
+    this.handleCaretActivity();
+
+    this.isListening = true;
+    try {
+      this.recognition.start();
+    } catch (e) {}
     this.updateButtonStates();
   }
 
@@ -517,41 +527,27 @@ class DictationWidget {
       const display = this.renderTokens(tokens);
       this.updatePopup(display);
 
-      const editorRect = this.editorContent.getBoundingClientRect();
-      if (this.lastCaretRect) {
-        this.positionPopup(this.lastCaretRect, editorRect);
-      } else {
-        this.showPopupCentered(editorRect);
-      }
+      this.handleCaretActivity();
     }
 
     if (!anyFinal) return;
 
-    // Step A: Parse Command
     const cmdResult = this.parseCommandFromTranscript(finalTranscript);
     const textToProcess = cmdResult.text || '';
 
-    // Step B: Prepare Text
     if (textToProcess.trim()) {
       const finalTokens = this.tokeniseWithSerials(textToProcess);
       const finalDisplay = this.renderTokens(finalTokens);
 
       const finalSerials = new Set(finalTokens.map((t) => t.serial));
-      this.pendingPunct = this.pendingPunct.filter(
-        (p) => !finalSerials.has(p.serial)
-      );
+      this.pendingPunct = this.pendingPunct.filter((p) => !finalSerials.has(p.serial));
 
       const rawNow = !!this.modifierHeld;
-
-      // FIX: Do NOT process transcript here. Pass finalDisplay (raw words) to insertTextAtCursor.
-      // insertTextAtCursor handles processing if !rawNow.
-      // This prevents \n\n from being stripped by trim() calls in processTranscript logic if called twice.
       this.insertTextAtCursor(finalDisplay, rawNow);
     } else {
       this.pendingPunct = [];
     }
 
-    // Step C: Execute Command (after insertion)
     if (cmdResult.action) {
       requestAnimationFrame(() => {
         cmdResult.action();
@@ -613,10 +609,7 @@ class DictationWidget {
   insertTextAtCursor(text, isRaw = false) {
     if (!this.editorContent) return;
 
-    // Transform "new line" -> "\n\n" here
     let frag = isRaw ? text : this.processTranscript(text);
-
-    // Guard against empty result, but allow pure newlines
     if (!frag && frag !== '\n' && frag !== '\n\n') return;
 
     const content = this.editorContent.textContent || '';
@@ -632,14 +625,12 @@ class DictationWidget {
       start = content.length;
     }
 
-    // Context-aware casing (only if text has letters)
     if (/[a-zA-Z0-9]/.test(frag)) {
       if (start === 0 || /[.!?\n]\s*$/.test(content.slice(0, start))) {
         frag = frag.charAt(0).toUpperCase() + frag.slice(1);
       }
     }
 
-    // Context-aware spacing
     const charBefore = content.charAt(start - 1);
     if (!/^[.,;:!?\n]/.test(frag) && charBefore && !/\s/.test(charBefore)) {
       frag = ' ' + frag;
@@ -659,7 +650,6 @@ class DictationWidget {
       frag = frag + ' ';
     }
 
-    // Insertion Strategy
     this.editorContent.focus();
     const sel = window.getSelection();
     sel.removeAllRanges();
@@ -680,13 +670,11 @@ class DictationWidget {
     let lastInsertedNode = null;
 
     parts.forEach((part, index) => {
-      // Add text part
       if (part.length > 0) {
         const textNode = document.createTextNode(part);
         fragment.appendChild(textNode);
         lastInsertedNode = textNode;
       }
-      // Add BR for every newline found (except the end)
       if (index < parts.length - 1) {
         const br = document.createElement('br');
         fragment.appendChild(br);
@@ -696,13 +684,10 @@ class DictationWidget {
 
     if (fragment.hasChildNodes()) {
       range.insertNode(fragment);
-
-      // Ensure cursor is placed AFTER the inserted content
       if (lastInsertedNode) {
         range.setStartAfter(lastInsertedNode);
         range.collapse(true);
       }
-
       sel.removeAllRanges();
       sel.addRange(range);
     }
@@ -717,91 +702,71 @@ class DictationWidget {
 
   handleCaretActivity() {
     const sel = window.getSelection();
-    if (!sel.rangeCount) {
-      this.hidePopup();
-      return;
-    }
-    const range = sel.getRangeAt(0);
-    if (!this.editorContent.contains(range.commonAncestorContainer)) {
-      this.hidePopup();
-      return;
-    }
-
-    this.lastRange = range.cloneRange();
-    const posRange = range.cloneRange();
-    posRange.collapse(true);
-
     let finalCaretRect = null;
+    const editorRect = this.editorContent.getBoundingClientRect();
 
-    const rects = posRange.getClientRects();
-    if (rects && rects.length > 0) {
-      const rawRect = rects[0];
-      finalCaretRect = {
-        left: rawRect.left,
-        top: rawRect.top,
-        width: rawRect.width || 8,
-        height: rawRect.height || 16,
-        right: rawRect.right || rawRect.left + (rawRect.width || 8),
-        bottom: rawRect.bottom || rawRect.top + (rawRect.height || 16),
-      };
-    } else {
-      // FALLBACK 1: try boundingClientRect (sometimes works when getClientRects is empty)
-      const b = posRange.getBoundingClientRect
-        ? posRange.getBoundingClientRect()
-        : null;
-      if (
-        b &&
-        (b.width || b.height) &&
-        (b.left || b.top || b.right || b.bottom)
-      ) {
-        finalCaretRect = {
-          left: b.left,
-          top: b.top,
-          width: b.width || 8,
-          height: b.height || 16,
-          right: b.right || b.left + (b.width || 8),
-          bottom: b.bottom || b.top + (b.height || 16),
-        };
-      } else {
-        // FALLBACK 2: inject a tiny marker to measure caret position reliably
-        try {
-          const marker = document.createElement('span');
-          marker.textContent = '\u200B';
-          marker.style.display = 'inline-block';
-          marker.style.width = '0px';
-          marker.style.height = '1em';
-          marker.style.verticalAlign = 'baseline';
-          marker.style.pointerEvents = 'none';
+    if (sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (this.editorContent.contains(range.commonAncestorContainer)) {
+        this.lastRange = range.cloneRange();
+        const posRange = range.cloneRange();
+        posRange.collapse(true);
 
-          const tempRange = posRange.cloneRange();
-          tempRange.insertNode(marker);
-
-          const mr = marker.getBoundingClientRect();
+        const rects = posRange.getClientRects();
+        if (rects && rects.length > 0) {
+          const rawRect = rects[0];
           finalCaretRect = {
-            left: mr.left,
-            top: mr.top,
-            width: mr.width || 8,
-            height: mr.height || 16,
-            right: mr.right || mr.left + (mr.width || 8),
-            bottom: mr.bottom || mr.top + (mr.height || 16),
+            left: rawRect.left,
+            top: rawRect.top,
+            width: rawRect.width || 8,
+            height: rawRect.height || 18,
+            right: rawRect.right || rawRect.left + (rawRect.width || 8),
+            bottom: rawRect.bottom || rawRect.top + (rawRect.height || 18),
           };
+        } else {
+          try {
+            const marker = document.createElement('span');
+            marker.textContent = '\u200B';
+            marker.style.display = 'inline-block';
+            marker.style.width = '0px';
+            marker.style.height = '1em';
+            marker.style.verticalAlign = 'baseline';
+            marker.style.pointerEvents = 'none';
 
-          // remove marker and restore selection
-          marker.remove();
+            const tempRange = posRange.cloneRange();
+            tempRange.insertNode(marker);
 
-          // Restore original selection safely
-          sel.removeAllRanges();
-          sel.addRange(range);
-        } catch (e) {
-          // If all else fails, keep null -> we'll use centered mode, but at least we tried hard.
-          finalCaretRect = null;
+            const mr = marker.getBoundingClientRect();
+            finalCaretRect = {
+              left: mr.left,
+              top: mr.top,
+              width: mr.width || 8,
+              height: mr.height || 18,
+              right: mr.right || mr.left + (mr.width || 8),
+              bottom: mr.bottom || mr.top + (mr.height || 18),
+            };
+
+            marker.remove();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          } catch (e) {}
         }
       }
     }
 
+    if (!finalCaretRect && editorRect) {
+      finalCaretRect = {
+        left: editorRect.left + 16,
+        top: editorRect.top + 16,
+        width: 8,
+        height: 18,
+        right: editorRect.left + 24,
+        bottom: editorRect.top + 34
+      };
+    }
+
     this.lastCaretRect = finalCaretRect;
 
-    const editorRect = this.editorContent.getBoundingClientRect();
     if (this.lastCaretRect) {
       this.positionPopup(this.lastCaretRect, editorRect);
     } else {
@@ -849,40 +814,30 @@ class DictationWidget {
     return parts.join('');
   }
 
-  addPendingPunctuation(char) {
-    const interimActive = this.isPopupVisible && this.lastTokens.length;
-
-    if (!interimActive) {
-      this.insertTextAtCursor(char, true);
-      return;
-    }
-
-    const anchor = this.lastTokens[this.lastTokens.length - 1];
-    this.pendingPunct.push({ serial: anchor.serial, char });
-
-    const display = this.renderTokens(this.lastTokens);
-    this.updatePopup(display);
-    this.positionPopup(
-      this.lastCaretRect,
-      this.editorContent.getBoundingClientRect()
-    );
-  }
-
   applyStyles() {
     const css = `
+        .superdictate-widget-container {
+          box-sizing: border-box;
+        }
+        .dictation-editor-content:empty:before {
+          content: attr(data-placeholder);
+          color: #64748b;
+          font-style: italic;
+          pointer-events: none;
+        }
         .tentative-popup {
           position: fixed; 
           top: 0; 
           left: 0;
-          background-color: #000;
-          color: #fff;
-          /* DIAGNOSTIC CHANGE: NEW Border Color (was pink) */
-          border: 3px solid #00ff66; 
+          background-color: #000000 !important;
+          color: #ffffff !important;
+          border: 3px solid #00ff66 !important; 
           border-radius: 6px;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+          box-shadow: 0 4px 20px rgba(0, 255, 102, 0.45), 0 6px 24px rgba(0,0,0,0.9);
           padding: 10px 14px;
           font-family: sans-serif;
           font-size: 1.1rem; 
+          font-weight: 500;
           z-index: 2147483647; 
           pointer-events: none; 
           display: none; 
@@ -896,13 +851,11 @@ class DictationWidget {
           pointer-events: none; overflow: visible; z-index: 2147483646;
         }
         .tentative-popup-connector path {
-            fill: none; 
-            /* DIAGNOSTIC CHANGE: NEW Path Color (was pink) */
-            stroke: #00ff66; 
-            stroke-width: 2px;
+          fill: none !important; 
+          stroke: #00ff66 !important; 
+          stroke-width: 2.5px !important;
+          filter: drop-shadow(0 0 4px #00ff66);
         }
-        
-        /* ... existing styles ... */
         .quick-edit-span-word, .quick-edit-span-space { cursor: pointer; border-radius: 3px; }
         .quick-edit-span-space { display: inline-block; vertical-align: bottom; }
         .quick-edit-span-word.highlight-main { background-color: rgba(0, 122, 204, 0.85); }
@@ -929,33 +882,19 @@ class DictationWidget {
     this.isEditing = !this.isEditing;
     if (this.isEditing) {
       this.spanifyContent();
-      this.editorContent.addEventListener(
-        'mousemove',
-        this.boundHandleEditorMouseMove
-      );
-      this.editorContent.addEventListener(
-        'mouseleave',
-        this.boundClearAllHighlights
-      );
+      this.editorContent.addEventListener('mousemove', this.boundHandleEditorMouseMove);
+      this.editorContent.addEventListener('mouseleave', this.boundClearAllHighlights);
     } else {
       this.clearAllHighlights();
       this.deSpanifyContent();
-      this.editorContent.removeEventListener(
-        'mousemove',
-        this.boundHandleEditorMouseMove
-      );
-      this.editorContent.removeEventListener(
-        'mouseleave',
-        this.boundClearAllHighlights
-      );
+      this.editorContent.removeEventListener('mousemove', this.boundHandleEditorMouseMove);
+      this.editorContent.removeEventListener('mouseleave', this.boundClearAllHighlights);
     }
     this.updateButtonStates();
   }
 
   spanifyContent() {
-    if (!this.spaceWidth) {
-      this.getSpaceWidth();
-    }
+    if (!this.spaceWidth) this.getSpaceWidth();
 
     const text = this.editorContent.textContent;
     this.editorContent.contentEditable = false;
@@ -970,22 +909,14 @@ class DictationWidget {
       const tokens = line.match(/\S+|\s+/g) || [];
       tokens.forEach((token) => {
         if (/\S/.test(token)) {
-          const span = makeElement(
-            'span',
-            { className: 'quick-edit-span-word' },
-            token
-          );
+          const span = makeElement('span', { className: 'quick-edit-span-word' }, token);
           fragment.appendChild(span);
         } else {
           for (let i = 0; i < token.length; i++) {
-            const spaceSpan = makeElement(
-              'span',
-              {
-                className: 'quick-edit-span-space',
-                style: { width: `${this.spaceWidth}px` },
-              },
-              '\u200B'
-            ); // Zero-width space to force rendering
+            const spaceSpan = makeElement('span', {
+              className: 'quick-edit-span-space',
+              style: { width: `${this.spaceWidth}px` },
+            }, '\u200B');
             fragment.appendChild(spaceSpan);
           }
         }
@@ -1024,7 +955,7 @@ class DictationWidget {
       sel.collapseToEnd();
     }
 
-    this._notifySubscribers(); // Notify subscribers that content has changed.
+    this._notifySubscribers();
   }
 
   updateButtonStates() {
@@ -1034,7 +965,6 @@ class DictationWidget {
 
     if (this.clearBtn) {
       this.clearBtn.style.display = hasText ? 'inline-block' : 'none';
-      // Reset to muted style
       this.clearBtn.style.backgroundColor = '#3a1c1c';
       this.clearBtn.style.color = '#bd8a8a';
       this.clearBtn.style.borderColor = '#5e2a2a';
@@ -1042,29 +972,23 @@ class DictationWidget {
 
     if (this.isListening) {
       this.toggleListenBtn.textContent = 'Stop Listening';
-      // Muted Red
       this.toggleListenBtn.style.backgroundColor = '#331b1b';
       this.toggleListenBtn.style.borderColor = '#4a2e2e';
       this.toggleListenBtn.style.color = '#bf8a8a';
-      this.toggleListenBtn.style.boxShadow = 'none'; // GlowBox handles the glow now
     } else {
       this.toggleListenBtn.textContent = 'Start Listening';
-      // Muted Green
       this.toggleListenBtn.style.backgroundColor = '#1b3320';
       this.toggleListenBtn.style.borderColor = '#2e4a32';
       this.toggleListenBtn.style.color = '#8abf8e';
-      this.toggleListenBtn.style.boxShadow = 'none';
     }
 
     this.toggleListenBtn.disabled = this.isEditing;
-    this.toggleEditBtn.textContent = this.isEditing
-      ? 'Finish Editing'
-      : 'Quick Edit';
+    this.toggleEditBtn.textContent = this.isEditing ? 'Finish Editing' : 'Quick Edit';
     this.toggleEditBtn.disabled = false;
 
     let status = '🔇 Idle';
     if (this.isEditing) status = '✏️ Editing';
-    else if (this.isListening) status = '🎙️ Listening';
+    else if (this.isListening) status = '🎙️ Listening (Speak now)...';
     const modText = this.modifierHeld ? ' (Raw Mode)' : '';
     this.statusDiv.textContent = `${status}${modText}`;
   }
@@ -1108,28 +1032,20 @@ class DictationWidget {
 
   clearAllHighlights() {
     for (const el of this.currentlyHighlighted) {
-      el.classList.remove(
-        'highlight-main',
-        'highlight-context',
-        'highlight-space'
-      );
+      el.classList.remove('highlight-main', 'highlight-context', 'highlight-space');
     }
     this.currentlyHighlighted = [];
   }
 
   getSpaceWidth() {
-    const measurer = makeElement(
-      'span',
-      {
-        style: {
-          position: 'absolute',
-          visibility: 'hidden',
-          font: window.getComputedStyle(this.editorContent).font,
-          'white-space': 'pre',
-        },
+    const measurer = makeElement('span', {
+      style: {
+        position: 'absolute',
+        visibility: 'hidden',
+        font: window.getComputedStyle(this.editorContent).font,
+        'white-space': 'pre',
       },
-      ' '
-    );
+    }, ' ');
 
     document.body.appendChild(measurer);
     this.spaceWidth = measurer.getBoundingClientRect().width;
@@ -1151,21 +1067,9 @@ class DictationWidget {
     const text = this.editorContent.textContent;
     if (!text) return;
 
-    if (window.projectApp && window.projectApp.clipboardSink) {
-      try {
-        window.projectApp.clipboardSink.receive(text);
-        this._showButtonFeedback(e ? e.target : this.copyButton, 'Sent!');
-        this.markAsUsed(); // Mark stale
-        return;
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
     navigator.clipboard.writeText(text).then(() => {
-      let button = e ? e.target : this.copyButton;
-      this._showButtonFeedback(button, 'Copied!');
-      this.markAsUsed(); // Mark stale
+      let button = e ? e.currentTarget : this.copyButton;
+      this._showButtonFeedback(button, '✓ Copied!');
     });
   }
 
@@ -1173,10 +1077,7 @@ class DictationWidget {
     const prevWordSpan = spaceSpan.previousElementSibling;
     const nextWordSpan = spaceSpan.nextElementSibling;
 
-    if (
-      prevWordSpan &&
-      prevWordSpan.classList.contains('quick-edit-span-word')
-    ) {
+    if (prevWordSpan && prevWordSpan.classList.contains('quick-edit-span-word')) {
       let prevText = prevWordSpan.textContent;
       if (/[.,?!;:]$/.test(prevText)) {
         prevText = prevText.slice(0, -1);
@@ -1184,15 +1085,11 @@ class DictationWidget {
       prevWordSpan.textContent = prevText + key;
     }
 
-    if (
-      nextWordSpan &&
-      nextWordSpan.classList.contains('quick-edit-span-word')
-    ) {
+    if (nextWordSpan && nextWordSpan.classList.contains('quick-edit-span-word')) {
       if (key === '.') {
         let nextText = nextWordSpan.textContent;
         if (nextText.length > 0) {
-          nextWordSpan.textContent =
-            nextText.charAt(0).toUpperCase() + nextText.slice(1);
+          nextWordSpan.textContent = nextText.charAt(0).toUpperCase() + nextText.slice(1);
         }
       }
     }
@@ -1201,19 +1098,13 @@ class DictationWidget {
   handleSmartQuote(spaceSpan) {
     if (this.openQuoteSpans.length > 0) {
       const prevWordSpan = spaceSpan.previousElementSibling;
-      if (
-        prevWordSpan &&
-        prevWordSpan.classList.contains('quick-edit-span-word')
-      ) {
+      if (prevWordSpan && prevWordSpan.classList.contains('quick-edit-span-word')) {
         prevWordSpan.textContent = prevWordSpan.textContent + '”';
         this.openQuoteSpans = [];
       }
     } else {
       const nextWordSpan = spaceSpan.nextElementSibling;
-      if (
-        nextWordSpan &&
-        nextWordSpan.classList.contains('quick-edit-span-word')
-      ) {
+      if (nextWordSpan && nextWordSpan.classList.contains('quick-edit-span-word')) {
         nextWordSpan.textContent = '“' + nextWordSpan.textContent;
         this.openQuoteSpans.push(nextWordSpan);
       }
@@ -1221,17 +1112,9 @@ class DictationWidget {
   }
 
   handleShiftToggleCase(targetSpan, isSingleWord = false) {
-    let wordToToggle;
-    if (isSingleWord) {
-      wordToToggle = targetSpan;
-    } else {
-      wordToToggle = targetSpan.nextElementSibling;
-    }
+    let wordToToggle = isSingleWord ? targetSpan : targetSpan.nextElementSibling;
 
-    if (
-      wordToToggle &&
-      wordToToggle.classList.contains('quick-edit-span-word')
-    ) {
+    if (wordToToggle && wordToToggle.classList.contains('quick-edit-span-word')) {
       let text = wordToToggle.textContent;
       if (text.length > 0) {
         const firstChar = text.charAt(0);
@@ -1253,16 +1136,10 @@ class DictationWidget {
       const relX = (clientX - rect.left) / rect.width;
       if (relX < 0.5) {
         const prev = target.previousElementSibling;
-        if (prev && prev.classList.contains('quick-edit-span-space')) {
-          return prev;
-        }
-        return target.nextElementSibling;
+        return (prev && prev.classList.contains('quick-edit-span-space')) ? prev : target.nextElementSibling;
       } else {
         const next = target.nextElementSibling;
-        if (next && next.classList.contains('quick-edit-span-space')) {
-          return next;
-        }
-        return target.previousElementSibling;
+        return (next && next.classList.contains('quick-edit-span-space')) ? next : target.previousElementSibling;
       }
     }
     return null;
@@ -1270,14 +1147,8 @@ class DictationWidget {
 
   handleClearPunctuation(spaceSpan) {
     const prevWordSpan = spaceSpan.previousElementSibling;
-    if (
-      prevWordSpan &&
-      prevWordSpan.classList.contains('quick-edit-span-word')
-    ) {
-      prevWordSpan.textContent = prevWordSpan.textContent.replace(
-        /[.,?!;:]$/,
-        ''
-      );
+    if (prevWordSpan && prevWordSpan.classList.contains('quick-edit-span-word')) {
+      prevWordSpan.textContent = prevWordSpan.textContent.replace(/[.,?!;:]$/, '');
     }
   }
 
@@ -1286,120 +1157,11 @@ class DictationWidget {
   }
 
   destroy() {
-    if (this.isListening) this.stopListening();
-
-    // Popup Cleanup
+    this.stopListening();
     if (this.popupElement) this.popupElement.remove();
     if (this.popupSvgConnector) this.popupSvgConnector.remove();
-
     this.subscribers.clear();
-
-    if (this.element) {
-      this.element.remove();
-    }
-
-    if (window.projectApp && window.projectApp.superDictateInstance === this) {
-    }
-  }
-
-  wordToNum = {
-    one: 1,
-    two: 2,
-    three: 3,
-    four: 4,
-    five: 5,
-    six: 6,
-    seven: 7,
-    eight: 8,
-    nine: 9,
-    ten: 10,
-  };
-
-  processCommands(transcript) {
-    // Deprecated in favor of parseCommandFromTranscript
-    // Kept empty or removed to avoid confusion if called elsewhere
-    return false;
-  }
-
-  deleteWords(count) {
-    this.editorContent.focus();
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-
-    // Collapse to end of current selection (which is where we just inserted text, if any)
-    sel.collapseToEnd();
-
-    // Extend backwards word by word
-    for (let i = 0; i < count; i++) {
-      if (sel.modify) {
-        // 'extend' moves the focus node, keeping the anchor fixed, creating a selection
-        sel.modify('extend', 'backward', 'word');
-      }
-    }
-
-    // Delete the selected range
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-
-    this.handleCaretActivity();
-    this._notifySubscribers();
-  }
-
-  parseCommandFromTranscript(transcript) {
-    const clean = transcript.trim();
-
-    // Copy to Clipboard
-    let match = clean.match(/^(.*)(?:^|\s)copy to clipboard[\W]*$/i);
-    if (match) {
-      return {
-        text: match[1],
-        action: () => this.copyContent(),
-      };
-    }
-
-    // Quick Edit
-    match = clean.match(/^(.*)(?:^|\s)quick edit[\W]*$/i);
-    if (match) {
-      return {
-        text: match[1],
-        action: () => this.toggleEditMode(),
-      };
-    }
-
-    // Delete N Words
-    // Regex: Captures text before command in group 1.
-    // Handles "delete 5 words" or "delete five words".
-    match = clean.match(
-      /^(.*)(?:^|\s)delete\s+(?:the\s+last\s+)?(\w+)\s+words?[\W]*$/i
-    );
-    if (match) {
-      const prefix = match[1];
-      const amountStr = match[2];
-      let count = parseInt(amountStr, 10);
-      if (isNaN(count)) {
-        count = this.wordToNum[amountStr.toLowerCase()];
-      }
-
-      if (count && count >= 1 && count <= 10) {
-        return {
-          text: prefix,
-          action: () => this.deleteWords(count),
-        };
-      }
-    }
-
-    return { text: clean, action: null };
-  }
-
-  updateCopyButtonState(sink) {
-    // If we have a sink (Teleporter connected), show the magic button
-    if (this.magicSendBtn) {
-      if (sink && sink.isConnected) {
-        this.magicSendBtn.style.display = 'inline-block';
-      } else {
-        this.magicSendBtn.style.display = 'none';
-      }
-    }
+    if (this.element) this.element.remove();
   }
 
   _showButtonFeedback(button, tempText) {
@@ -1415,184 +1177,109 @@ class DictationWidget {
 
   hasContent() {
     if (!this.editorContent) return false;
-    // Get text, replace zero-width spaces and non-breaking spaces, then trim
-    const cleanText = this.editorContent.textContent
-      .replace(/[\u200B\u00A0]/g, '')
-      .trim();
+    const cleanText = this.editorContent.textContent.replace(/[\u200B\u00A0]/g, '').trim();
     return cleanText.length > 0;
   }
 
-  markAsUsed() {
-    this.staleTimestamp = Date.now();
-    this._notifySubscribers(); // Trigger guidance update
-  }
-
-  magicSendContent(e) {
-    if (window.projectApp && window.projectApp.clipboardSink) {
-      const text = this.editorContent.textContent;
-      if (!text) return;
-
-      // Check for Super Mode (Shift Key)
-      const isSuperMode = e && e.shiftKey;
-
-      try {
-        // Send object with text and mode flag
-        window.projectApp.clipboardSink.receive({
-          text: text,
-          superMode: isSuperMode,
-        });
-
-        this._showButtonFeedback(
-          e ? e.target : this.magicSendBtn,
-          isSuperMode ? 'Auto-Run!' : 'Sent!'
-        );
-        this.markAsUsed();
-
-        // Clear content immediately after sending (Standard behavior)
-        this.clearContent();
-      } catch (err) {
-        console.error('Magic Send failed:', err);
-      }
-    }
-  }
-
   getText() {
-    // Helper method to retrieve plain text content safely
     if (!this.editorContent) return '';
-    // Replace zero-width spaces and normalize newlines if needed, though textContent is usually sufficient
-    return this.editorContent.textContent;
+    return this.editorContent.textContent.replace(/[\u200B\u00A0]/g, ' ').trim();
+  }
+
+  setText(text) {
+    if (!this.editorContent) return;
+    this.editorContent.textContent = text || '';
+    this.staleTimestamp = 0;
+    this.updateButtonStates();
+    this._notifySubscribers();
+  }
+
+  focus() {
+    if (this.editorContent) this.editorContent.focus();
   }
 
   setupEventListeners() {
-      this.editorContent.addEventListener('keyup', () =>
-        this.handleCaretActivity()
-      );
-      this.editorContent.addEventListener('mouseup', () =>
-        this.handleCaretActivity()
-      );
-      this.editorContent.addEventListener('input', () => {
+    this.editorContent.addEventListener('keyup', () => this.handleCaretActivity());
+    this.editorContent.addEventListener('mouseup', () => this.handleCaretActivity());
+    this.editorContent.addEventListener('input', () => {
+      this.handleCaretActivity();
+      this._notifySubscribers();
+    });
+    this.editorContent.addEventListener('blur', () => this.hidePopup());
+
+    document.addEventListener('selectionchange', () => {
+      if (document.activeElement === this.editorContent)
         this.handleCaretActivity();
-        this._notifySubscribers();
-      });
-      this.editorContent.addEventListener('blur', () => this.hidePopup());
-      document.addEventListener('selectionchange', () => {
-        if (document.activeElement === this.editorContent)
-          this.handleCaretActivity();
-      });
+    });
 
-      // Strip rich text on paste - plain text only
-      this.editorContent.addEventListener('paste', (e) => {
-        e.preventDefault();
-        const plain = e.clipboardData.getData('text/plain');
-        if (!plain) return;
+    this.editorContent.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const plain = e.clipboardData.getData('text/plain');
+      if (!plain) return;
 
-        if (
-          document.queryCommandSupported &&
-          document.queryCommandSupported('insertText')
-        ) {
-          document.execCommand('insertText', false, plain);
-        } else {
-          const sel = window.getSelection();
-          if (!sel.rangeCount) return;
-          const range = sel.getRangeAt(0);
-          range.deleteContents();
-          const textNode = document.createTextNode(plain);
-          range.insertNode(textNode);
-          range.setStartAfter(textNode);
-          range.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(plain);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
 
-        this.handleCaretActivity();
-        this._notifySubscribers();
+      this.handleCaretActivity();
+      this._notifySubscribers();
+      this.updateButtonStates();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        this.modifierHeld = true;
         this.updateButtonStates();
-      });
+      }
 
-      window.addEventListener('keydown', (e) => {
-        if (e.key === 'Control' || e.key === 'Meta') {
-          this.modifierHeld = true;
-          this.updateButtonStates();
-        }
-
-        if (this.isEditing && document.activeElement === this.editorContent) {
-          const spaceSpan = this.editorContent.querySelector('.highlight-space');
-          if (spaceSpan) {
-            if (['.', ',', ';', ':'].includes(e.key)) {
-              e.preventDefault();
-              this.handleSmartPunctuation(e.key, spaceSpan);
-            } else if (e.key === '"') {
-              e.preventDefault();
-              this.handleSmartQuote(spaceSpan);
-            } else if (e.key === 'Shift') {
-              e.preventDefault();
-              this.handleShiftToggleCase(spaceSpan);
-            } else if (e.key === ' ') {
-              e.preventDefault();
-              this.handleClearPunctuation(spaceSpan);
-            }
+      if (this.isEditing && document.activeElement === this.editorContent) {
+        const spaceSpan = this.editorContent.querySelector('.highlight-space');
+        if (spaceSpan) {
+          if (['.', ',', ';', ':'].includes(e.key)) {
+            e.preventDefault();
+            this.handleSmartPunctuation(e.key, spaceSpan);
+          } else if (e.key === '"') {
+            e.preventDefault();
+            this.handleSmartQuote(spaceSpan);
           } else if (e.key === 'Shift') {
-            const wordSpan = this.editorContent.querySelector('.highlight-main');
-            if (wordSpan) {
-              e.preventDefault();
-              this.handleShiftToggleCase(wordSpan, true);
-            }
+            e.preventDefault();
+            this.handleShiftToggleCase(spaceSpan);
+          } else if (e.key === ' ') {
+            e.preventDefault();
+            this.handleClearPunctuation(spaceSpan);
           }
         }
-
-        if (
-          this.isListening &&
-          !this.isEditing &&
-          document.activeElement === this.editorContent &&
-          ['.', ',', '?'].includes(e.key)
-        ) {
-          e.preventDefault();
-          this.addPendingPunctuation(e.key);
-        }
-      });
-
-      window.addEventListener('keyup', (e) => {
-        if (e.key === 'Control' || e.key === 'Meta') {
-          this.modifierHeld = false;
-          this.updateButtonStates();
-        }
-      });
-    }
-
-  startListening() {
-    if (!this.recognition || this.isListening) return;
-
-    // Save the current selection BEFORE focus() clobbers it
-    const sel = window.getSelection();
-    let savedRange = null;
-    if (sel.rangeCount > 0) {
-      const r = sel.getRangeAt(0);
-      // Only preserve it if it's actually inside our editor
-      if (this.editorContent.contains(r.commonAncestorContainer)) {
-        savedRange = r.cloneRange();
       }
-    }
+    });
 
-    this.editorContent.focus();
-
-    if (savedRange) {
-      // Restore the cursor to where the user had it
-      sel.removeAllRanges();
-      sel.addRange(savedRange);
-      this.lastRange = savedRange;
-    } else {
-      // No prior position in editor — default to end
-      sel.selectAllChildren(this.editorContent);
-      sel.collapseToEnd();
-    }
-
-    this.isListening = true;
-    this.recognition.start();
-    this.updateButtonStates();
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        this.modifierHeld = false;
+        this.updateButtonStates();
+      }
+    });
   }
 
-
-  
-
-  
+  parseCommandFromTranscript(transcript) {
+    const clean = transcript.trim();
+    let match = clean.match(/^(.*)(?:^|\s)copy to clipboard[\W]*$/i);
+    if (match) {
+      return { text: match[1], action: () => this.copyContent() };
+    }
+    match = clean.match(/^(.*)(?:^|\s)quick edit[\W]*$/i);
+    if (match) {
+      return { text: match[1], action: () => this.toggleEditMode() };
+    }
+    return { text: clean, action: null };
+  }
 }
+
+globalThis.DictationWidget = DictationWidget;
+if (typeof module !== 'undefined' && module.exports) module.exports = DictationWidget;

@@ -1,800 +1,282 @@
 class P2PConnector {
-    constructor(receiver) {
-      this.receiver = receiver; // The app delegate (baseController or DrawingApp instance)
-      this.peerConnection = null;
-      this.dataChannel = null;
-      this.hostBeaconInterval = null;
-      this.hostPollInterval = null;
-      this._hostConnecting = false;
+  /**
+   * Universal WebRTC Host Connector powered by PeerJS.
+   * Manages room pairing, capability negotiation, and telemetry routing
+   * to BaseController and ViewControls.
+   */
+  constructor(baseController) {
+    this.baseController = baseController;
+    this.roomCode = localStorage.getItem('p2p-host-room') || Math.floor(1000 + Math.random() * 9000).toString();
+    localStorage.setItem('p2p-host-room', this.roomCode);
 
-      this.handshakeInterval = null;
-      this.heartbeatInterval = null;
-      this.lastHeartbeatTime = 0;
-      this.isVerified = false;
-      this.roomCode = '';
-      this.statusLabel = null;
-      this.isHostMode = false;
-    }
+    this.peer = null;
+    this.activeConnection = null;
+    this.status = 'disconnected'; // 'disconnected' | 'connecting' | 'ready' | 'connected'
+    this.statusListeners = new Set();
+    this.container = null;
 
-    async startWirelessHost(roomCode, statusLabel, isAutoRestart = false) {
-          this.roomCode = roomCode;
-          this.statusLabel = statusLabel;
-          this.isHostMode = true;
+    P2PConnector.instance = this;
+    this._initPeer();
+  }
 
-          if (!isAutoRestart) {
-            this.connectionSessionId = Math.random().toString(36).substring(2, 9);
-            this._hostConnecting = true;
-            this.updateStatus('Initializing connection...', '#aaa');
-            this.logDiag(`Starting Host Sync [Room: ${roomCode}]`);
-          } else {
-            this.updateStatus('Re-advertising host sync...', '#ffa726');
-          }
+  static async ensurePeerJS() {
+    if (typeof globalThis.Peer !== 'undefined') return globalThis.Peer;
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+      s.onload = () => resolve(globalThis.Peer);
+      s.onerror = () => {
+        const s2 = document.createElement('script');
+        s2.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+        s2.onload = () => resolve(globalThis.Peer);
+        s2.onerror = reject;
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    });
+  }
 
-          this.updateButtonState(true);
-          this.cleanupConnection(true);
+  async _initPeer() {
+    this._setStatus('connecting');
+    try {
+      await P2PConnector.ensurePeerJS();
 
-          try {
-            const pc = new RTCPeerConnection(this.getRTCConfig());
-            this.peerConnection = pc;
+      if (this.peer) {
+        try { this.peer.destroy(); } catch (e) {}
+      }
 
-            pc.oniceconnectionstatechange = () => {
-              const s = pc.iceConnectionState.toLowerCase();
-              this.updateStatus(`Routes: ${s}`, '#90a4ae');
-              this.logDiag(`ICE state: ${s}`);
-              if (s === 'failed') {
-                this.updateStatus('Routes failed. Reconnecting...', '#ff4444');
-                this.handleConnectionFailure();
-              }
-            };
-
-            pc.onconnectionstatechange = () => {
-              const state = pc.connectionState.toLowerCase();
-              this.logDiag(`Peer state: ${state}`);
-              if (state === 'failed' || state === 'closed' || state === 'disconnected') {
-                this.handleConnectionFailure();
-              } else if (state === 'connected') {
-                if (!this.isVerified) {
-                  this.updateStatus('Transport established. Verifying...', '#0288d1');
-                }
-              }
-            };
-
-            const channel = pc.createDataChannel('ctrl', { ordered: true });
-            this.dataChannel = channel;
-            this.setupDataChannelEvents(channel);
-
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await this.waitForIceGathering(pc);
-
-            const offerMessage = {
-              from: 'host',
-              type: 'offer',
-              room: roomCode,
-              sid: this.connectionSessionId,
-              sdp: pc.localDescription
-            };
-
-            // Determine host IP for local signaling server (port 3000)
-            let localHost = window.location.hostname;
-            if (localHost === 'localhost' || localHost === '127.0.0.1') {
-              localHost = localStorage.getItem('accucad-p2p-host-ip') || '10.0.0.226';
-            }
-
-            const localSignalEndpoint = `http://${localHost}:3000/${roomCode}`;
-            const fallbackSignalEndpoint = `https://ntfy.sh/accucad-p2p-${roomCode}`;
-
-            // Function to post signal to both endpoints
-            const broadcastSignal = async (payload) => {
-              const bodyStr = JSON.stringify(payload);
-              try {
-                await fetch(localSignalEndpoint, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: bodyStr
-                });
-              } catch (e) {}
-
-              try {
-                await fetch(fallbackSignalEndpoint, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: bodyStr
-                });
-              } catch (e) {}
-            };
-
-            // Message handler for incoming responses from phone
-            const handleIncomingPayload = async (payload) => {
-              if (!payload || payload.room !== roomCode || payload.from !== 'client') return;
-
-              if (payload.type === 'client-ready') {
-                this.logDiag('Client ready detected. Broadcasting offer.');
-                broadcastSignal(offerMessage);
-                return;
-              }
-
-              if (payload.type === 'answer' && payload.sdp) {
-                if (payload.sid !== this.connectionSessionId) return;
-                if (!pc.remoteDescription) {
-                  this.logDiag('Received SDP answer from phone. Establishing connection...');
-                  this.updateStatus('Negotiating transport...', '#0288d1');
-                  await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-                }
-              }
-            };
-
-            // Connect SSE listener to local signal server
-            try {
-              const esLocal = new EventSource(localSignalEndpoint);
-              this._signalEventSourceLocal = esLocal;
-
-              esLocal.onmessage = (e) => {
-                try {
-                  const raw = JSON.parse(e.data);
-                  const data = (raw && raw.message) ? JSON.parse(raw.message) : raw;
-                  handleIncomingPayload(data);
-                } catch (err) {}
-              };
-
-              esLocal.onopen = () => {
-                this.logDiag('Connected to local LAN signal server (port 3000)');
-                broadcastSignal(offerMessage);
-              };
-            } catch (err) {}
-
-            // Connect fallback SSE listener directly to ntfy.sh (without allorigins.win)
-            try {
-              const esFallback = new EventSource(`${fallbackSignalEndpoint}/sse`);
-              this._signalEventSourceFallback = esFallback;
-
-              esFallback.onmessage = (e) => {
-                try {
-                  const raw = JSON.parse(e.data);
-                  const data = (raw && raw.message) ? JSON.parse(raw.message) : raw;
-                  handleIncomingPayload(data);
-                } catch (err) {}
-              };
-            } catch (err) {}
-
-            // Broadcast offer immediately
-            broadcastSignal(offerMessage);
-
-            // Keep beaconing offer until channel opens
-            this.hostBeaconInterval = setInterval(() => {
-              if (this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified) {
-                clearInterval(this.hostBeaconInterval);
-                this.hostBeaconInterval = null;
-                return;
-              }
-              broadcastSignal(offerMessage);
-            }, 1500);
-
-            this.updateStatus('Awaiting controller link...', '#90a4ae');
-
-          } catch (err) {
-            this.updateStatus('Setup error: ' + err.message, '#ff4444');
-            this.handleConnectionFailure();
-          }
+      const peerId = `cad_${this.roomCode}`;
+      this.peer = new globalThis.Peer(peerId, {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
         }
-    waitForIceGathering(pc) {
-      return new Promise((resolve) => {
-        if (pc.iceGatheringState === 'complete') {
-          resolve();
-          return;
-        }
-        let resolved = false;
-        const done = () => {
-          if (resolved) return;
-          resolved = true;
-          pc.removeEventListener('icegatheringstatechange', checkState);
-          resolve();
-        };
-        const checkState = () => {
-          if (pc.iceGatheringState === 'complete') done();
-        };
-        pc.addEventListener('icegatheringstatechange', checkState);
-        setTimeout(done, 2200);
       });
-    }
-    setupDataChannelEvents(channel) {
-      channel.onopen = () => {
-        this.updateStatus('Data channel open. Verifying...', '#0288d1');
-        this.isVerified = false;
-        this.lastHeartbeatTime = Date.now();
-        this.logDiag('Data channel opened');
-        if (this.isHostMode) {
-          this.startHandshakeVerification(channel);
-        }
-      };
 
-      channel.onclose = () => {
-        this.updateStatus('Link closed.', '#ff8800');
-        this.logDiag('Data channel closed');
-        this.handleConnectionFailure();
-      };
+      this.peer.on('open', (id) => {
+        console.log(`[P2PConnector] Host ready on peer ID: ${id}`);
+        this._setStatus('ready');
+      });
 
-      channel.onerror = (err) => {
-        console.warn('Data channel error:', err);
-        this.logDiag(`Channel error: ${err.message || err}`);
-        this.handleConnectionFailure();
-      };
+      this.peer.on('connection', (conn) => {
+        console.log('[P2PConnector] Incoming connection from client:', conn.peer);
+        this._setupConnection(conn);
+      });
 
-      channel.onmessage = (e) => {
-        try {
-          const payload = JSON.parse(e.data);
-          this.lastHeartbeatTime = Date.now();
-
-          if (this.showDiagnosticsInline) {
-            this.logDiag(`Received: ${payload.type}`);
-          }
-
-          if (payload.type === 'h-pong') {
-            if (!this.isVerified) {
-              this.isVerified = true;
-              this.stopHandshakeVerification();
-              this.updateStatus('Connected', '#00e676');
-              this.logDiag('Handshake verified!');
-              channel.send(JSON.stringify({ type: 'h-verified' }));
-              
-              // Immediately configure the client layout
-              this.sendCapabilities();
-              
-              this.startHeartbeat(channel);
-            }
-          } else if (payload.type === 'ping') {
-            channel.send(JSON.stringify({ type: 'pong' }));
-          } else if (payload.type === 'drag') {
-            this.dispatch('handleRemoteDrag', payload.dx, payload.dy, payload.mode);
-          } else if (payload.type === 'zoom') {
-            this.dispatch('handleRemoteZoom', payload.ratio);
-          } else if (payload.type === 'perspective') {
-            this.dispatch('handleRemotePerspective', payload.dy);
-          } else if (payload.type === 'accudrawZ') {
-            this.dispatch('handleRemoteAccudrawZ', payload.dy);
-          } else if (payload.type === 'modeChange') {
-            if (payload.mode === 'rotate' || payload.mode === 'pan') {
-              // It is a View Mode Change! Present a subtle on-screen computer HUD notification
-              if (typeof UITools !== 'undefined' && typeof UITools.showHUD === 'function') {
-                const label = payload.mode === 'rotate' ? 'Rotate View' : 'Pan View';
-                const icon = payload.mode === 'rotate' ? '🔄' : '🖐️';
-                UITools.showHUD({
-                  id: 'p2p-mode-hud',
-                  html: `<div style="padding: 10px 20px; background: rgba(20, 20, 25, 0.95); border: 1.5px solid #00e676; border-radius: 30px; color: #fff; font-family: monospace; font-size: 13px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.4); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
-                          <span style="color: #00e676;">${icon}</span> Mode: ${label}
-                         </div>`,
-                  position: 'bottom',
-                  autoClose: 1800
-                });
-              }
-            } else {
-              // It is a Control Panel Change! Translate payload accurately (sliders -> compass, tool -> tool)
-              this.dispatch('highlightActiveControlBox', payload.mode);
-            }
-          } else if (payload.type === 'sliderSelect') {
-            this.dispatch('selectSliderRelative', payload.change);
-          } else if (payload.type === 'sliderDragStart') {
-            this.dispatch('handleSliderDragStart', payload.mode);
-          } else if (payload.type === 'sliderDragMove') {
-            this.dispatch('handleSliderDragMove', payload.dy, payload.phoneHeight);
-          } else if (payload.type === 'sliderDragEnd') {
-            this.dispatch('handleSliderDragEnd');
-          } else if (payload.type === 'sliderAdjustStart') {
-            this.dispatch('startSliderAdjustment');
-          } else if (payload.type === 'sliderAdjust') {
-            this.dispatch('adjustSelectedSlider', payload.ratio);
-          } else if (payload.type === 'sliderTap') {
-            this.dispatch('handleSliderTap');
-          }
-        } catch (err) {
-          console.error('Error handling remote message:', err);
-        }
-      };
-    }
-
-    dispatch(methodName, ...args) {
-      // Self-healing, abstracted delegate dispatcher routing to active view controls or global managers
-      if (this.receiver && typeof this.receiver[methodName] === 'function') {
-        this.receiver[methodName](...args);
-        return;
-      }
-      if (this.receiver && this.receiver.viewControls && typeof this.receiver.viewControls[methodName] === 'function') {
-        this.receiver.viewControls[methodName](...args);
-        return;
-      }
-      if (typeof ViewControlsManager !== 'undefined' && ViewControlsManager.instance && typeof ViewControlsManager.instance[methodName] === 'function') {
-        ViewControlsManager.instance[methodName](...args);
-        return;
-      }
-    }
-
-    cleanupConnection(suppressStatus = false) {
-        if (this._signalEventSourceLocal) {
-          try { this._signalEventSourceLocal.close(); } catch (e) {}
-          this._signalEventSourceLocal = null;
-        }
-        if (this._signalEventSourceFallback) {
-          try { this._signalEventSourceFallback.close(); } catch (e) {}
-          this._signalEventSourceFallback = null;
-        }
-        if (this._signalWebSocket) {
-          try { this._signalWebSocket.close(); } catch (e) {}
-          this._signalWebSocket = null;
-        }
-        if (this.hostBeaconInterval) {
-          clearInterval(this.hostBeaconInterval);
-          this.hostBeaconInterval = null;
-        }
-        if (this.pingInterval) {
-          clearInterval(this.pingInterval);
-          this.pingInterval = null;
-        }
-        if (this.verificationTimeout) {
-          clearTimeout(this.verificationTimeout);
-          this.verificationTimeout = null;
-        }
-        if (this.dataChannel) {
-          try { this.dataChannel.close(); } catch (e) {}
-          this.dataChannel = null;
-        }
-        if (this.peerConnection) {
-          try { this.peerConnection.close(); } catch (e) {}
-          this.peerConnection = null;
-        }
-
-        this.isVerified = false;
-        this._hostConnecting = false;
-
-        if (!suppressStatus) {
-          this.updateStatus('Offline', '#aaa');
-          this.updateButtonState(false);
-        }
-      }
-    getRTCConfig() {
-      return {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          }
-        ]
-      };
-    }
-    destroy() {
-      this.cleanupConnection();
-    }
-
-    updateStatus(text, color) {
-      if (this.statusLabel) {
-        this.statusLabel.textContent = `Status: ${text}`;
-        if (color) this.statusLabel.style.color = color;
-      }
-    }
-
-    startHandshakeVerification(channel) {
-      if (this.handshakeInterval) clearInterval(this.handshakeInterval);
-      this.handshakeInterval = setInterval(() => {
-        if (channel && channel.readyState === 'open') {
-          try {
-            channel.send(JSON.stringify({ type: 'h-ping' }));
-          } catch(e) {
-            console.warn('Handshake ping failed:', e);
-          }
-        }
-      }, 500);
-    }
-
-    stopHandshakeVerification() {
-      if (this.handshakeInterval) clearInterval(this.handshakeInterval);
-      this.handshakeInterval = null;
-    }
-
-    startHeartbeat(channel) {
-      if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
-      this.lastHeartbeatTime = Date.now();
-
-      this.heartbeatInterval = setInterval(() => {
-        if (!this.isVerified || !this.dataChannel || this.dataChannel.readyState !== 'open') {
-          clearInterval(this.heartbeatInterval);
-          return;
-        }
-
-        try {
-          channel.send(JSON.stringify({ type: 'ping' }));
-        } catch (e) {
-          console.warn('Heartbeat failed:', e);
-          this.handleConnectionFailure();
-          return;
-        }
-
-        const silentTime = Date.now() - this.lastHeartbeatTime;
-        if (silentTime > 7000) {
-          console.warn('Connection silent. Restarting sync.');
-          this.handleConnectionFailure();
-        }
-      }, 3000);
-    }
-
-    handleConnectionFailure() {
-      if (this.isHostMode && this.roomCode && this.statusLabel) {
-        this.updateStatus('Lost link. Restarting sync...', '#ffaa00');
-        this.cleanupConnection(true);
-        setTimeout(() => {
-          if (this.isHostMode) {
-            this.startWirelessHost(this.roomCode, this.statusLabel, true);
-          }
-        }, 1500);
-      } else {
-        this.updateStatus('Disconnected.', '#ff4444');
-        this.cleanupConnection(false);
-      }
-    }
-
-    updateButtonState(active) {
-      if (!this.connectBtn) return;
-      if (active) {
-        this.connectBtn.textContent = 'Stop Sync';
-        this.connectBtn.style.background = '#e53935';
-        this.connectBtn.style.color = '#fff';
-      } else {
-        this.connectBtn.textContent = 'Start Host Sync';
-        this.connectBtn.style.background = '#00e676';
-        this.connectBtn.style.color = '#000';
-      }
-    }
-
-    renderControls(container) {
-      container.innerHTML = '';
-
-      const content = document.createElement('div');
-      content.style.cssText = 'padding: 12px; display: flex; flex-direction: column; gap: 10px; color: #ddd; font-family: sans-serif; font-size: 12px;';
-
-      const roomRow = document.createElement('div');
-      roomRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
-
-      const roomLabel = document.createElement('span');
-      roomLabel.textContent = 'Room Code:';
-      roomLabel.style.fontWeight = 'bold';
-
-      const roomInput = document.createElement('input');
-      roomInput.type = 'text';
-      roomInput.value = this.roomCode || localStorage.getItem('drawing-app-p2p-room') || '7777';
-      roomInput.style.cssText = 'width: 80px; padding: 4px; background: #222; border: 1px solid #555; color: #fff; border-radius: 3px; text-align: center; font-weight: bold; font-family: monospace; font-size: 13px;';
-
-      roomRow.appendChild(roomLabel);
-      roomRow.appendChild(roomInput);
-      content.appendChild(roomRow);
-
-      const qrBox = document.createElement('div');
-      qrBox.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ffffff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 4px 0;';
-
-      const qrContainer = document.createElement('div');
-      qrContainer.style.cssText = 'width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; background: #ffffff; box-sizing: border-box; overflow: hidden; cursor: pointer;';
-      qrContainer.title = 'Click to enlarge for phone camera';
-      qrBox.appendChild(qrContainer);
-
-      qrContainer.onclick = (e) => {
-        e.preventDefault();
-        const room = roomInput.value.trim();
-        if (!room) return;
-
-        const pairURL = this.getPairURL(room);
-        const activeEnv = this.receiver.env || this.receiver;
-
-        const popup = UITools.makeDialog({
-          env: activeEnv,
-          title: 'Scan QR with Phone',
-          size: [240, 240],
-          position: [window.innerWidth / 2 - 120, window.innerHeight / 2 - 120],
-        });
-
-        if (popup && popup.element) {
-          popup.element.style.setProperty('background-color', '#ffffff', 'important');
-          popup.element.style.setProperty('border', '1px solid #cbd5e1', 'important');
-          popup.element.style.setProperty('border-radius', '10px', 'important');
-        }
-        if (popup && popup.contentElement) {
-          popup.contentElement.style.setProperty('background', '#ffffff', 'important');
-          popup.contentElement.style.setProperty('display', 'flex', 'important');
-          popup.contentElement.style.setProperty('align-items', 'center', 'important');
-          popup.contentElement.style.setProperty('justify-content', 'center', 'important');
-          popup.contentElement.style.setProperty('padding', '20px', 'important');
-
-          const popupQR = document.createElement('div');
-          popupQR.style.cssText = 'width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; background: #ffffff;';
-          popup.contentElement.appendChild(popupQR);
-
-          if (typeof QRCodeGenerator !== 'undefined') {
-            QRCodeGenerator.drawSVG(pairURL, popupQR);
-          }
-        }
-      };
-
-      const qrLinkDisplay = document.createElement('div');
-      qrLinkDisplay.style.cssText = 'font-size: 10px; color: #0284c7; text-align: center; margin-top: 8px; word-break: break-all; width: 100%; font-family: monospace; font-weight: bold; cursor: pointer; text-decoration: underline;';
-      qrLinkDisplay.title = 'Click to copy full pairing URL';
-      qrBox.appendChild(qrLinkDisplay);
-
-      const buttonRow = document.createElement('div');
-      buttonRow.style.cssText = 'display: flex; gap: 6px; margin-top: 6px; width: 100%; justify-content: center;';
-
-      const copyBtn = document.createElement('button');
-      copyBtn.textContent = 'Copy Link';
-      copyBtn.style.cssText = 'padding: 3px 8px; font-size: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #334155; font-weight: bold;';
-
-      const openBtn = document.createElement('button');
-      openBtn.textContent = 'Open in Tab ↗';
-      openBtn.style.cssText = 'padding: 3px 8px; font-size: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #334155; font-weight: bold;';
-
-      buttonRow.appendChild(copyBtn);
-      buttonRow.appendChild(openBtn);
-      qrBox.appendChild(buttonRow);
-      content.appendChild(qrBox);
-
-      const updateQRCanvas = () => {
-        const room = roomInput.value.trim();
-        if (!room) return;
-        localStorage.setItem('drawing-app-p2p-room', room);
-
-        const pairURL = this.getPairURL(room);
-        qrLinkDisplay.textContent = pairURL;
-
-        copyBtn.onclick = (e) => {
-          e.stopPropagation();
-          navigator.clipboard.writeText(pairURL).then(() => {
-            copyBtn.textContent = '✓ Copied!';
-            setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 2000);
-          });
-        };
-
-        openBtn.onclick = (e) => {
-          e.stopPropagation();
-          window.open(pairURL, '_blank');
-        };
-
-        qrLinkDisplay.onclick = copyBtn.onclick;
-
-        if (typeof QRCodeGenerator !== 'undefined') {
-          QRCodeGenerator.drawSVG(pairURL, qrContainer);
-        }
-      };
-
-      roomInput.oninput = () => {
-        updateQRCanvas();
-        if (this.isHostMode) {
-          const room = roomInput.value.trim();
-          if (room) this.startWirelessHost(room, this.statusLabel, true);
-        }
-      };
-
-      const connectBtn = document.createElement('button');
-      connectBtn.style.cssText = 'padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: all 0.15s; margin-top: 4px;';
-      this.connectBtn = connectBtn;
-      content.appendChild(connectBtn);
-
-      const statusLabel = document.createElement('div');
-      statusLabel.style.cssText = 'text-align: center; font-style: italic; color: #aaa; height: 18px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-      this.statusLabel = statusLabel;
-      content.appendChild(statusLabel);
-
-      // Diagnostics row
-      const diagRow = document.createElement('div');
-      diagRow.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #333;';
-      const diagCheckbox = document.createElement('input');
-      diagCheckbox.type = 'checkbox';
-      diagCheckbox.id = 'p2p-diag-toggle-sidebar';
-      diagCheckbox.style.cursor = 'pointer';
-      diagCheckbox.checked = this.showDiagnosticsInline || false;
-
-      const diagLabel = document.createElement('label');
-      diagLabel.htmlFor = 'p2p-diag-toggle-sidebar';
-      diagLabel.textContent = 'Show diagnostics log';
-      diagLabel.style.cssText = 'cursor: pointer; font-size: 11px; color: #bbb;';
-      diagRow.appendChild(diagCheckbox);
-      diagRow.appendChild(diagLabel);
-      content.appendChild(diagRow);
-
-      const diagContainer = document.createElement('div');
-      diagContainer.id = 'p2p-diag-container-sidebar';
-      diagContainer.style.cssText = `
-        display: ${this.showDiagnosticsInline ? 'block' : 'none'};
-        background: #090a0f; border: 1px solid #113311; border-radius: 4px; padding: 8px;
-        font-family: monospace; font-size: 10px; color: #00ff66; line-height: 1.4;
-        margin-top: 6px; width: 100%; box-sizing: border-box; height: 120px; overflow-y: auto;
-      `;
-      content.appendChild(diagContainer);
-
-      diagCheckbox.onchange = () => {
-        diagContainer.style.display = diagCheckbox.checked ? 'block' : 'none';
-        this.showDiagnosticsInline = diagCheckbox.checked;
-      };
-
-      this.updateButtonState(false);
-
-      connectBtn.onclick = () => {
-        if (this.isHostMode || this._hostConnecting) {
-          this.cleanupConnection(false);
-          this.updateStatus('Stopped Host Sync.', '#ff4444');
-          this.logDiag('Stopped host sync session');
+      this.peer.on('error', (err) => {
+        console.warn('[P2PConnector] Peer error:', err.type, err.message);
+        if (err.type === 'unavailable-id') {
+          // If ID collision, roll a new room code
+          this.roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+          localStorage.setItem('p2p-host-room', this.roomCode);
+          this._initPeer();
         } else {
-          const room = roomInput.value.trim();
-          if (!room) {
-            statusLabel.textContent = 'Enter room code.';
-            return;
-          }
-          this.startWirelessHost(room, statusLabel);
+          this._setStatus('disconnected');
         }
-      };
+      });
 
-      container.appendChild(content);
-      updateQRCanvas();
-
-      if (!this.isHostMode && !this._hostConnecting) {
-        const room = roomInput.value.trim();
-        if (room) {
-          setTimeout(() => {
-            if (!this.isHostMode && !this._hostConnecting) {
-              this.startWirelessHost(room, this.statusLabel);
-            }
-          }, 100);
+      this.peer.on('disconnected', () => {
+        this._setStatus('disconnected');
+        if (this.peer && !this.peer.destroyed) {
+          try { this.peer.reconnect(); } catch (e) {}
         }
-      }
-    }
-    logDiag(text) {
-      const container = document.getElementById('p2p-diag-container-sidebar');
-      if (container) {
-        const time = new Date().toLocaleTimeString();
-        const line = document.createElement('div');
-        line.style.cssText = 'border-bottom: 1px solid #112211; padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-        line.textContent = `[${time}] ${text}`;
-        container.appendChild(line);
-        container.scrollTop = container.scrollHeight;
-      }
-    }
-  
-    
+      });
 
-    static drawQRCodeOnCanvas(text, canvas, size = 150) {
-      try {
-        const matrix = this._generateQRMatrix(text);
-        const ctx = canvas.getContext('2d');
-        const N = matrix.length;
-        const scale = Math.floor(size / N);
-        const pad = Math.floor((size - (scale * N)) / 2);
-        
-        canvas.width = size;
-        canvas.height = size;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, size, size);
-        
-        ctx.fillStyle = '#000000';
-        for (let r = 0; r < N; r++) {
-          for (let c = 0; c < N; c++) {
-            if (matrix[r][c]) {
-              ctx.fillRect(pad + c * scale, pad + r * scale, scale, scale);
-            }
-          }
+    } catch (err) {
+      console.error('[P2PConnector] Failed to load PeerJS:', err);
+      this._setStatus('disconnected');
+    }
+  }
+
+  _setupConnection(conn) {
+    if (this.activeConnection) {
+      try { this.activeConnection.close(); } catch (e) {}
+    }
+    this.activeConnection = conn;
+
+    conn.on('open', () => {
+      console.log('[P2PConnector] DataChannel established with mobile controller.');
+      this._setStatus('connected');
+
+      // Send verification and capability schema
+      conn.send({ type: 'h-verified' });
+      const caps = (this.baseController && typeof this.baseController.getP2PCapabilities === 'function')
+        ? this.baseController.getP2PCapabilities()
+        : {
+            leftTrackpad: { title: "Navigation", modes: { rotate: { label: "Rotate View" }, pan: { label: "Pan View" } } },
+            rightTrackpad: { title: "Controls", modes: { sliders: { label: "Compass Sliders" }, tool: { label: "Tool Settings" } } }
+          };
+
+      conn.send({ type: 'configure', config: caps });
+    });
+
+    conn.on('data', (data) => {
+      this._handleRemoteMessage(data);
+    });
+
+    conn.on('close', () => {
+      console.log('[P2PConnector] Mobile controller disconnected.');
+      this.activeConnection = null;
+      this._setStatus('ready');
+    });
+
+    conn.on('error', (err) => {
+      console.warn('[P2PConnector] Connection error:', err);
+      this.activeConnection = null;
+      this._setStatus('ready');
+    });
+  }
+
+  _handleRemoteMessage(payload) {
+    if (!payload) return;
+    const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    const type = data.type;
+    const bc = this.baseController;
+    const vc = (typeof ViewControlsManager !== 'undefined' && ViewControlsManager.instance)
+      ? ViewControlsManager.instance
+      : null;
+
+    if (type === 'drag' && bc) {
+      bc.handleRemoteDrag(data.dx, data.dy, data.mode);
+    } else if (type === 'zoom' && bc) {
+      bc.handleRemoteZoom(data.ratio);
+    } else if (type === 'perspective' && bc) {
+      bc.handleRemotePerspective(data.dy);
+    } else if (type === 'accudrawZ' && vc) {
+      vc.handleRemoteAccudrawZ(data.dy);
+    } else if (type === 'sliderDragStart' && vc) {
+      vc.handleSliderDragStart(data.mode);
+    } else if (type === 'sliderDragMove' && vc) {
+      vc.handleSliderDragMove(data.dy, data.phoneHeight);
+    } else if (type === 'sliderDragEnd' && vc) {
+      vc.handleSliderDragEnd();
+    } else if (type === 'sliderAdjustStart' && vc) {
+      vc.startSliderAdjustment();
+    } else if (type === 'sliderAdjust' && vc) {
+      vc.adjustSelectedSlider(data.ratio);
+    } else if (type === 'sliderTap' && vc) {
+      vc.handleSliderTap();
+    } else if (type === 'modeChange' && vc) {
+      vc.highlightActiveControlBox(data.mode);
+    } else if (type === 'h-pong' || type === 'pong') {
+      // Heartbeat ack
+    }
+  }
+
+  _setStatus(s) {
+    this.status = s;
+    this.statusListeners.forEach((fn) => {
+      try { fn(s); } catch (e) {}
+    });
+    this._updateUIBadge();
+  }
+
+  onStatusChange(fn) {
+    this.statusListeners.add(fn);
+    fn(this.status);
+    return () => this.statusListeners.delete(fn);
+  }
+
+  getMobileUrl() {
+    const isHosted = window.location.hostname.endsWith('.github.io');
+    const user = isHosted ? window.location.hostname.split('.')[0] : 'karmatics';
+    const baseUrl = isHosted 
+      ? `https://${user}.github.io/TouchController/`
+      : `${window.location.origin}/TouchController/`;
+
+    return `${baseUrl}?room=${this.roomCode}`;
+  }
+
+  renderControls(container) {
+    this.container = container;
+    container.innerHTML = '';
+
+    const wrap = makeElement('div', {
+      style: { display: 'flex', flexDirection: 'column', gap: '8px', padding: '6px', fontFamily: 'monospace', fontSize: '11px' }
+    });
+
+    const statusRow = makeElement('div', {
+      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+    }, [
+      makeElement('span', { style: { color: '#94a3b8' } }, 'Wireless Link:'),
+      makeElement('span', { id: 'p2p-status-pill', style: { fontWeight: 'bold' } }, this.status)
+    ]);
+    wrap.appendChild(statusRow);
+
+    const qrContainer = makeElement('div', {
+      style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: '#fff', padding: '10px', borderRadius: '8px', margin: '4px 0' }
+    });
+
+    const qrImg = makeElement('img', {
+      src: `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(this.getMobileUrl())}`,
+      style: { width: '130px', height: '130px', display: 'block' }
+    });
+    qrContainer.appendChild(qrImg);
+
+    const roomBadge = makeElement('div', {
+      style: { color: '#090d16', fontWeight: 'bold', fontSize: '13px', letterSpacing: '2px' }
+    }, `ROOM: ${this.roomCode}`);
+    qrContainer.appendChild(roomBadge);
+    wrap.appendChild(qrContainer);
+
+    const actionRow = makeElement('div', { style: { display: 'flex', gap: '6px' } }, [
+      makeElement('button', {
+        className: 'dr-nav-btn',
+        style: { flex: 1, padding: '4px', fontSize: '10px', color: '#00f2fe' },
+        onclick: () => {
+          navigator.clipboard.writeText(this.getMobileUrl());
+          alert('Copied TouchController pairing link to clipboard!');
         }
-      } catch (err) {
-        console.error("QR drawing failed offline:", err);
-      }
-    }
-
-    sendCapabilities() {
-      if (!this.dataChannel || this.dataChannel.readyState !== 'open') return;
-      
-      let config = null;
-      if (this.receiver && typeof this.receiver.getP2PCapabilities === 'function') {
-        config = this.receiver.getP2PCapabilities();
-      } else {
-        // Fallback default capabilities
-        config = {
-          leftTrackpad: {
-            title: "Navigation",
-            modes: {
-              pan: { label: "Pan & Zoom", type: "drag_pinch" },
-              rotate: { label: "Rotate Model", type: "drag" }
-            }
-          },
-          rightTrackpad: {
-            title: "Transform Settings",
-            modes: {
-              sliders: { label: "Sliders", type: "sliders" }
-            }
-          }
-        };
-      }
-
-      this.dataChannel.send(JSON.stringify({
-        type: 'configure',
-        config: config
-      }));
-      this.logDiag('Handshake: Transmitted capabilities schema to client');
-    }
-
-  static async drawQRCodeSVG(text, container) {
-      try {
-        if (typeof QRCodeGenerator !== 'undefined' && typeof QRCodeGenerator.drawSVG === 'function') {
-          await QRCodeGenerator.drawSVG(text, container);
-        } else {
-          container.innerHTML = '<div style="color: #ff5555; font-size: 11px;">QRCodeGenerator not available</div>';
+      }, '📋 Copy URL'),
+      makeElement('button', {
+        className: 'dr-nav-btn',
+        style: { flex: 1, padding: '4px', fontSize: '10px' },
+        onclick: () => {
+          this.roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+          localStorage.setItem('p2p-host-room', this.roomCode);
+          this._initPeer();
+          this.renderControls(container);
         }
-      } catch (err) {
-        console.error("QR drawing failed:", err);
-      }
+      }, '↻ New Code')
+    ]);
+    wrap.appendChild(actionRow);
+
+    container.appendChild(wrap);
+    this._updateUIBadge();
+  }
+
+  _updateUIBadge() {
+    const pill = document.getElementById('p2p-status-pill');
+    if (!pill) return;
+    if (this.status === 'connected') {
+      pill.textContent = '● CONNECTED';
+      pill.style.color = '#10b981';
+    } else if (this.status === 'ready') {
+      pill.textContent = '○ Awaiting Phone';
+      pill.style.color = '#38bdf8';
+    } else if (this.status === 'connecting') {
+      pill.textContent = '◌ Connecting...';
+      pill.style.color = '#f59e0b';
+    } else {
+      pill.textContent = '✕ Offline';
+      pill.style.color = '#ef4444';
     }
+  }
 
-  static async downloadQRAsPNG(text, filename = 'qr_code.png') {
-      try {
-        const canvas = document.createElement('canvas');
-        const size = 300;
-        
-        if (typeof QRCodeGenerator !== 'undefined') {
-          await QRCodeGenerator.draw(text, canvas, size);
-          
-          const link = document.createElement('a');
-          link.download = filename;
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-        } else {
-          console.error("QRCodeGenerator not initialized.");
-        }
-      } catch (err) {
-        console.error("Failed to export QR code as PNG:", err);
-      }
+  destroy() {
+    if (this.activeConnection) {
+      try { this.activeConnection.close(); } catch (e) {}
     }
-
-  getPairURL(roomCode) {
-      const room = roomCode || this.roomCode || '7777';
-      const customBase = localStorage.getItem('accucad-p2p-client-base-url');
-      if (customBase && customBase.trim()) {
-        let clean = customBase.trim().replace(/\/*$/, '');
-        if (!clean.endsWith('.html') && !clean.endsWith('/')) {
-          clean += '/index.html';
-        }
-        const sep = clean.includes('?') ? '&' : '?';
-        return `${clean}${sep}room=${encodeURIComponent(room)}`;
-      }
-
-      const loc = window.location;
-      let host = loc.hostname;
-
-      // Replace localhost or loopback with verified local LAN IP for phone cameras
-      if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
-        const storedIp = localStorage.getItem('accucad-p2p-host-ip');
-        host = storedIp || '10.0.0.226';
-      }
-
-      const port = loc.port ? `:${loc.port}` : '';
-      const protocol = loc.protocol || 'http:';
-
-      let path = loc.pathname;
-      if (path.endsWith('/index.html')) {
-        path = path.slice(0, -'/index.html'.length);
-      }
-
-      if (/\/accuCad\/?$/i.test(path)) {
-        path = path.replace(/\/accuCad\/?$/i, '/TouchController');
-      } else if (/\/CadPlan\/?$/i.test(path)) {
-        path = path.replace(/\/CadPlan\/?$/i, '/TouchController');
-      } else {
-        path = path.replace(/\/+$/, '') + '/TouchController';
-      }
-
-      if (!path.startsWith('/')) path = '/' + path;
-      if (!path.endsWith('.html')) {
-        path = path.replace(/\/+$/, '') + '/index.html';
-      }
-
-      return `${protocol}//${host}${port}${path}?room=${encodeURIComponent(room)}&host=${encodeURIComponent(host)}`;
+    if (this.peer) {
+      try { this.peer.destroy(); } catch (e) {}
     }
+    this.statusListeners.clear();
+    P2PConnector.instance = null;
+  }
 }
+
+globalThis.P2PConnector = P2PConnector;
+if (typeof module !== 'undefined' && module.exports) module.exports = P2PConnector;

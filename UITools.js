@@ -1657,17 +1657,25 @@ class UITools {
   }
 
   static _initGlobalListeners() {
-    if (UITools._getState().globalsInit) return;
-    UITools._getState().globalsInit = true;
+      if (UITools._getState().globalsInit) return;
+      UITools._getState().globalsInit = true;
 
-    window.addEventListener(
-      'wheel',
-      (e) => {
-        if (
-          UITools._getState().wheelLockedWidget &&
-          document.activeElement.tagName !== 'TEXTAREA'
-        ) {
+      window.addEventListener(
+        'wheel',
+        (e) => {
           const w = UITools._getState().wheelLockedWidget;
+          if (!w || document.activeElement?.tagName === 'TEXTAREA') return;
+
+          const isOverWidget = Boolean(
+            (w._dockedEl && w._dockedEl.contains(e.target)) ||
+            (w._floatEl && w._floatEl.contains(e.target))
+          );
+
+          if (!isOverWidget) {
+            UITools._setWheelLock(null);
+            return;
+          }
+
           if (w.options.type === 'slider') {
             e.preventDefault();
             const step = w.options.step || 0.01;
@@ -1682,23 +1690,19 @@ class UITools {
             w.options.onChange?.(w._value, w);
             w._flashAccent();
           }
+        },
+        { passive: false }
+      );
+
+      window.addEventListener('mousedown', (e) => {
+        if (
+          UITools._getState().wheelLockedWidget &&
+          !e.target.closest('.uw-wheel-locked, .uw-w-docked, .uw-float')
+        ) {
+          UITools._setWheelLock(null);
         }
-      },
-      { passive: false }
-    );
-
-    window.addEventListener('mousedown', (e) => {
-      if (
-        UITools._getState().wheelLockedWidget &&
-        !e.target.closest('.uw-wheel-locked, .uw-w-docked, .uw-float')
-      ) {
-        UITools._setWheelLock(null);
-      }
-    });
-
-    console.log('[UITools] Ready for MIDI assignment (click to lock wheel)');
-  }
-
+      });
+    }
   _smartDialogPos() {
     const dialogs =
       UITools._getState().all.filter((w) => w._mode === 'dialog').length - 1;

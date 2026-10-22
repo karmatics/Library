@@ -389,123 +389,104 @@ class CodeMirrorWidget {
   }
 
   static async ensureLoaded() {
-    if (this._modules) return this._modules;
-    if (this._loadingPromise) return this._loadingPromise;
+      if (this._modules) return this._modules;
+      if (this._loadingPromise) return this._loadingPromise;
 
-    this._loadingPromise = (async () => {
-      // 1. Inject or update the import map independently
-      let importMap = document.querySelector('script[type="importmap"]');
-      let mapData = { imports: {} };
-      if (importMap) {
-        try {
-          mapData = JSON.parse(importMap.textContent);
-        } catch (e) {}
-      } else {
-        importMap = document.createElement('script');
-        importMap.type = 'importmap';
-        document.head.appendChild(importMap);
-      }
-
-      const cmImports = {
-        '@codemirror/state': 'https://esm.sh/@codemirror/state@6.4.1',
-        '@codemirror/view':
-          'https://esm.sh/@codemirror/view@6.24.1?external=@codemirror/state',
-        '@codemirror/language':
-          'https://esm.sh/@codemirror/language@6.10.1?external=@codemirror/state,@codemirror/view',
-        '@codemirror/commands':
-          'https://esm.sh/@codemirror/commands@6.3.3?external=@codemirror/state,@codemirror/view,@codemirror/language',
-        '@codemirror/search':
-          'https://esm.sh/@codemirror/search@6.5.6?external=@codemirror/state,@codemirror/view',
-        '@codemirror/autocomplete':
-          'https://esm.sh/@codemirror/autocomplete@6.15.0?external=@codemirror/state,@codemirror/view,@codemirror/language',
-        '@codemirror/lint':
-          'https://esm.sh/@codemirror/lint@6.5.0?external=@codemirror/state,@codemirror/view',
-        '@codemirror/lang-json':
-          'https://esm.sh/@codemirror/lang-json@6.0.1?external=@codemirror/state,@codemirror/language',
-        '@codemirror/lang-javascript':
-          'https://esm.sh/@codemirror/lang-javascript@6.2.2?external=@codemirror/state,@codemirror/language,@codemirror/view,@codemirror/commands',
-        '@codemirror/lang-markdown':
-          'https://esm.sh/@codemirror/lang-markdown@6.2.5?external=@codemirror/state,@codemirror/language,@codemirror/view',
-        '@codemirror/lang-html':
-          'https://esm.sh/@codemirror/lang-html@6.4.9?external=@codemirror/state,@codemirror/language,@codemirror/view',
-        '@codemirror/lang-css':
-          'https://esm.sh/@codemirror/lang-css@6.2.1?external=@codemirror/state,@codemirror/language,@codemirror/view',
-        '@codemirror/theme-one-dark':
-          'https://esm.sh/@codemirror/theme-one-dark@6.1.2?external=@codemirror/state,@codemirror/view,@codemirror/language',
-        '@lezer/common': 'https://esm.sh/@lezer/common@1.2.1',
-        '@lezer/highlight': 'https://esm.sh/@lezer/highlight@1.2.0',
-        '@lezer/lr': 'https://esm.sh/@lezer/lr@1.4.0',
-        crelt: 'https://esm.sh/crelt@1.0.6',
-        'style-mod': 'https://esm.sh/style-mod@4.1.2',
-        'w3c-keyname': 'https://esm.sh/w3c-keyname@2.2.8',
-      };
-
-      let needsUpdate = false;
-      for (const [key, val] of Object.entries(cmImports)) {
-        if (!mapData.imports[key]) {
-          mapData.imports[key] = val;
-          needsUpdate = true;
+      this._loadingPromise = (async () => {
+        let importMap = document.querySelector('script[type="importmap"]');
+        let mapData = { imports: {} };
+        if (importMap) {
+          try { mapData = JSON.parse(importMap.textContent); } catch (e) {}
+        } else {
+          importMap = document.createElement('script');
+          importMap.type = 'importmap';
+          document.head.appendChild(importMap);
         }
-      }
-      if (needsUpdate) {
-        importMap.textContent = JSON.stringify(mapData, null, 2);
-      }
 
-      // 2. Import core functionality
-      const [
-        state,
-        view,
-        language,
-        commands,
-        search,
-        autocomplete,
-        themeOneDark,
-        langJs,
-        langJson,
-      ] = await Promise.all([
-        import('@codemirror/state'),
-        import('@codemirror/view'),
-        import('@codemirror/language'),
-        import('@codemirror/commands'),
-        import('@codemirror/search'),
-        import('@codemirror/autocomplete'),
-        import('@codemirror/theme-one-dark'),
-        import('@codemirror/lang-javascript'),
-        import('@codemirror/lang-json'),
-      ]);
+        const cmImports = {
+          "@codemirror/state": "https://esm.sh/@codemirror/state@6.4.1",
+          "@codemirror/view": "https://esm.sh/@codemirror/view@6.24.1?external=@codemirror/state",
+          "@codemirror/language": "https://esm.sh/@codemirror/language@6.10.1?external=@codemirror/state,@codemirror/view",
+          "@codemirror/commands": "https://esm.sh/@codemirror/commands@6.3.3?external=@codemirror/state,@codemirror/view,@codemirror/language",
+          "@codemirror/search": "https://esm.sh/@codemirror/search@6.5.6?external=@codemirror/state,@codemirror/view",
+          "@codemirror/autocomplete": "https://esm.sh/@codemirror/autocomplete@6.15.0?external=@codemirror/state,@codemirror/view,@codemirror/language",
+          "@codemirror/lint": "https://esm.sh/@codemirror/lint@6.5.0?external=@codemirror/state,@codemirror/view",
+          "@codemirror/lang-json": "https://esm.sh/@codemirror/lang-json@6.0.1?external=@codemirror/state,@codemirror/language",
+          "@codemirror/lang-javascript": "https://esm.sh/@codemirror/lang-javascript@6.2.2?external=@codemirror/state,@codemirror/language,@codemirror/view,@codemirror/commands",
+          "@codemirror/lang-markdown": "https://esm.sh/@codemirror/lang-markdown@6.2.5?external=@codemirror/state,@codemirror/language,@codemirror/view",
+          "@codemirror/lang-html": "https://esm.sh/@codemirror/lang-html@6.4.9?external=@codemirror/state,@codemirror/language,@codemirror/view",
+          "@codemirror/lang-css": "https://esm.sh/@codemirror/lang-css@6.2.1?external=@codemirror/state,@codemirror/language,@codemirror/view",
+          "@codemirror/theme-one-dark": "https://esm.sh/@codemirror/theme-one-dark@6.1.2?external=@codemirror/state,@codemirror/view,@codemirror/language",
+          "@lezer/common": "https://esm.sh/@lezer/common@1.2.1",
+          "@lezer/highlight": "https://esm.sh/@lezer/highlight@1.2.0",
+          "@lezer/lr": "https://esm.sh/@lezer/lr@1.4.0",
+          "crelt": "https://esm.sh/crelt@1.0.6",
+          "style-mod": "https://esm.sh/style-mod@4.1.2",
+          "w3c-keyname": "https://esm.sh/w3c-keyname@2.2.8"
+        };
 
-      // Publish commands globally to align with legacy Global lookup fallbacks
-      globalThis.openSearchPanel = search.openSearchPanel;
-      globalThis.closeSearchPanel = search.closeSearchPanel;
+        let needsUpdate = false;
+        for (const [key, val] of Object.entries(cmImports)) {
+          if (!mapData.imports[key]) {
+            mapData.imports[key] = val;
+            needsUpdate = true;
+          }
+        }
+        if (needsUpdate) {
+          importMap.textContent = JSON.stringify(mapData, null, 2);
+        }
 
-      this._modules = {
-        EditorState: state.EditorState,
-        Compartment: state.Compartment,
-        Transaction: state.Transaction,
-        EditorView: view.EditorView,
-        drawSelection: view.drawSelection,
-        keymap: view.keymap,
-        lineNumbers: view.lineNumbers,
-        highlightSpecialChars: view.highlightSpecialChars,
-        syntaxHighlighting: language.syntaxHighlighting,
-        defaultHighlightStyle: language.defaultHighlightStyle,
-        bracketMatching: language.bracketMatching,
-        defaultKeymap: commands.defaultKeymap,
-        historyKeymap: commands.historyKeymap,
-        history: commands.history,
-        search: search.search,
-        searchKeymap: search.searchKeymap,
-        openSearchPanel: search.openSearchPanel,
-        closeSearchPanel: search.closeSearchPanel,
-        closeBrackets: autocomplete.closeBrackets,
-        oneDark: themeOneDark.oneDark,
-        javascript: langJs.javascript,
-        json: langJson.json,
-      };
+        const [
+          state, view, language, commands, search, autocomplete,
+          themeOneDark, langJs, langJson
+        ] = await Promise.all([
+          import("@codemirror/state"),
+          import("@codemirror/view"),
+          import("@codemirror/language"),
+          import("@codemirror/commands"),
+          import("@codemirror/search"),
+          import("@codemirror/autocomplete"),
+          import("@codemirror/theme-one-dark"),
+          import("@codemirror/lang-javascript"),
+          import("@codemirror/lang-json")
+        ]);
 
-      return this._modules;
-    })();
+        this._modules = {
+          EditorState: state.EditorState,
+          Compartment: state.Compartment,
+          Transaction: state.Transaction,
+          EditorView: view.EditorView,
+          drawSelection: view.drawSelection,
+          keymap: view.keymap,
+          lineNumbers: view.lineNumbers,
+          highlightSpecialChars: view.highlightSpecialChars,
+          syntaxHighlighting: language.syntaxHighlighting,
+          defaultHighlightStyle: language.defaultHighlightStyle,
+          bracketMatching: language.bracketMatching,
+          defaultKeymap: commands.defaultKeymap,
+          historyKeymap: commands.historyKeymap,
+          history: commands.history,
+          search: search.search,
+          searchKeymap: search.searchKeymap,
+          openSearchPanel: search.openSearchPanel,
+          closeSearchPanel: search.closeSearchPanel,
+          closeBrackets: autocomplete.closeBrackets,
+          oneDark: themeOneDark.oneDark,
+          javascript: langJs.javascript,
+          json: langJson.json
+        };
 
-    return this._loadingPromise;
-  }
+        for (const [key, val] of Object.entries(this._modules)) {
+          globalThis[key] = val;
+        }
+
+        globalThis.cmHistory = state.history || commands.history;
+        globalThis.openSearchPanel = search.openSearchPanel;
+        globalThis.closeSearchPanel = search.closeSearchPanel;
+
+        return this._modules;
+      })();
+
+      return this._loadingPromise;
+    }
 }

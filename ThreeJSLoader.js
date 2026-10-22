@@ -44,182 +44,185 @@ class ThreeJSLoader {
   }
 
   async init(containerElement) {
-      const CDN_BASE = 'https://cdn.jsdelivr.net/npm/three@0.153.0';
-      const FALLBACK_CDN = 'https://unpkg.com/three@0.153.0';
+        const CDN_BASE = 'https://cdn.jsdelivr.net/npm/three@0.153.0';
+        const FALLBACK_CDN = 'https://unpkg.com/three@0.153.0';
 
-      const THREE_URL = CDN_BASE + '/build/three.module.js';
-      const ADDONS = CDN_BASE + '/examples/jsm';
+        const THREE_URL = CDN_BASE + '/build/three.module.js';
+        const ADDONS = CDN_BASE + '/examples/jsm';
 
-      try {
-        if (window.THREE && window.THREE.WebGLRenderer) {
-          this.THREE = window.THREE;
-        } else {
-          try {
-            this.THREE = await import(THREE_URL);
-          } catch(cdnErr) {
-            this.THREE = await import(FALLBACK_CDN + '/build/three.module.js');
+        try {
+          if (window.THREE && window.THREE.WebGLRenderer) {
+            this.THREE = window.THREE;
+          } else {
+            try {
+              this.THREE = await import(THREE_URL);
+            } catch(cdnErr) {
+              this.THREE = await import(FALLBACK_CDN + '/build/three.module.js');
+            }
+            window.THREE = this.THREE;
+            globalThis.THREE = this.THREE;
           }
-          window.THREE = this.THREE;
-          globalThis.THREE = this.THREE;
+        } catch (e) {
+          console.error('[ThreeJSLoader] THREE import/reuse FAILED:', e);
+          throw e;
         }
-      } catch (e) {
-        console.error('[ThreeJSLoader] THREE import/reuse FAILED:', e);
-        throw e;
-      }
 
-      const THREE = this.THREE;
+        const THREE = this.THREE;
 
-      const loadAddon = async (subPath) => {
-        const blobUrl = await this._fetchAndRewrite(ADDONS + subPath, THREE_URL, 1);
-        return await import(blobUrl);
-      };
+        const loadAddon = async (subPath) => {
+          const blobUrl = await this._fetchAndRewrite(ADDONS + subPath, THREE_URL, 1);
+          return await import(blobUrl);
+        };
 
-      const jobs = [];
+        const jobs = [];
 
-      // 1. Controls
-      if (this.options.enableControls) {
-        jobs.push(
-          loadAddon('/controls/OrbitControls.js').then((m) => {
-            this.modules.OrbitControls = m.OrbitControls;
-            window.OrbitControls = m.OrbitControls;
-            globalThis.OrbitControls = m.OrbitControls;
-          })
-        );
-      }
-
-      // 2. Thick Lines
-      if (this.options.useThickLines) {
-        jobs.push(
-          loadAddon('/lines/LineSegmentsGeometry.js').then((m) => {
-            this.modules.LineSegmentsGeometry = m.LineSegmentsGeometry;
-            window.LineSegmentsGeometry = m.LineSegmentsGeometry;
-            globalThis.LineSegmentsGeometry = m.LineSegmentsGeometry;
-          })
-        );
-        jobs.push(
-          loadAddon('/lines/LineGeometry.js').then((m) => {
-            this.modules.LineGeometry = m.LineGeometry;
-            window.LineGeometry = m.LineGeometry;
-            globalThis.LineGeometry = m.LineGeometry;
-          })
-        );
-        jobs.push(
-          loadAddon('/lines/LineMaterial.js').then((m) => {
-            this.modules.LineMaterial = m.LineMaterial;
-            window.LineMaterial = m.LineMaterial;
-            globalThis.LineMaterial = m.LineMaterial;
-          })
-        );
-        jobs.push(
-          loadAddon('/lines/Line2.js').then((m) => {
-            this.modules.Line2 = m.Line2;
-            window.Line2 = m.Line2;
-            globalThis.Line2 = m.Line2;
-          })
-        );
-      }
-
-      // 3. Always include RGBELoader & GLTFLoader
-      jobs.push(
-        loadAddon('/loaders/GLTFLoader.js').then((m) => {
-          this.modules.GLTFLoader = m.GLTFLoader;
-          window.GLTFLoader = m.GLTFLoader;
-          globalThis.GLTFLoader = m.GLTFLoader;
-        })
-      );
-      jobs.push(
-        loadAddon('/loaders/RGBELoader.js').then((m) => {
-          this.modules.RGBELoader = m.RGBELoader;
-          window.RGBELoader = m.RGBELoader;
-          globalThis.RGBELoader = m.RGBELoader;
-        })
-      );
-
-      await Promise.all(jobs);
-
-      const container =
-        containerElement ||
-        document.getElementById(this.containerId) ||
-        document.body;
-
-      this.scene = new THREE.Scene();
-
-      const rect = container.getBoundingClientRect();
-      const width = Math.max(1, rect.width || container.clientWidth || 640);
-      const height = Math.max(1, rect.height || container.clientHeight || 360);
-
-      const fov = this.options.fov || 50;
-      this.camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 2000);
-
-      if (this.options.cameraPos) {
-        this.camera.position.set(
-          this.options.cameraPos.x,
-          this.options.cameraPos.y,
-          this.options.cameraPos.z
-        );
-      } else {
-        this.camera.position.z = 5;
-      }
-
-      this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-
-      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      this.renderer.toneMappingExposure = 1.0;
-
-      this.renderer.domElement.style.display = 'block';
-      this.renderer.domElement.style.width = '100%';
-      this.renderer.domElement.style.height = '100%';
-
-      this.renderer.setSize(width, height, false);
-      container.appendChild(this.renderer.domElement);
-
-      if (this.options.enableControls && this.modules.OrbitControls) {
-        this.controls = new this.modules.OrbitControls(
-          this.camera,
-          this.renderer.domElement
-        );
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
-      }
-
-      if (this.options.useRaycaster) this.raycaster = new THREE.Raycaster();
-      if (this.modules.GLTFLoader) this.loaders.gltf = new this.modules.GLTFLoader();
-
-      if (this.options.lighting !== false) {
-        this.setupStudioLighting();
-      }
-
-      if (this.options.environment !== false) {
-        const targetHdr = this.options.hdrPath || '/assets/venice_sunset_1k.hdr';
-        this.loadEnvironment(targetHdr).catch(err => {
-          console.warn('[ThreeJSLoader] Auto environment map note:', err.message);
-        });
-      }
-
-      window.addEventListener('resize', this._onResizeBound, false);
-
-      if (typeof ResizeObserver !== 'undefined') {
-        this._resizeObserver = new ResizeObserver(() => {
-          this._onResize();
-        });
-        this._resizeObserver.observe(container);
-      }
-
-      this.renderer.setAnimationLoop(() => {
-        if (this.controls) this.controls.update();
-        if (this.onUpdateCallback) {
-          try { this.onUpdateCallback(); } catch(e) {}
+        // 1. Controls
+        if (this.options.enableControls) {
+          jobs.push(
+            loadAddon('/controls/OrbitControls.js').then((m) => {
+              this.modules.OrbitControls = m.OrbitControls;
+              window.OrbitControls = m.OrbitControls;
+              globalThis.OrbitControls = m.OrbitControls;
+            })
+          );
         }
-        if (typeof this.customRender === 'function') {
-          this.customRender(this.renderer, this.scene, this.camera);
+
+        // 2. Thick Lines
+        if (this.options.useThickLines) {
+          jobs.push(
+            loadAddon('/lines/LineSegmentsGeometry.js').then((m) => {
+              this.modules.LineSegmentsGeometry = m.LineSegmentsGeometry;
+              window.LineSegmentsGeometry = m.LineSegmentsGeometry;
+              globalThis.LineSegmentsGeometry = m.LineSegmentsGeometry;
+            })
+          );
+          jobs.push(
+            loadAddon('/lines/LineGeometry.js').then((m) => {
+              this.modules.LineGeometry = m.LineGeometry;
+              window.LineGeometry = m.LineGeometry;
+              globalThis.LineGeometry = m.LineGeometry;
+            })
+          );
+          jobs.push(
+            loadAddon('/lines/LineMaterial.js').then((m) => {
+              this.modules.LineMaterial = m.LineMaterial;
+              window.LineMaterial = m.LineMaterial;
+              globalThis.LineMaterial = m.LineMaterial;
+            })
+          );
+          jobs.push(
+            loadAddon('/lines/Line2.js').then((m) => {
+              this.modules.Line2 = m.Line2;
+              window.Line2 = m.Line2;
+              globalThis.Line2 = m.Line2;
+            })
+          );
+        }
+
+        // 3. Always include RGBELoader & GLTFLoader
+        jobs.push(
+          loadAddon('/loaders/GLTFLoader.js').then((m) => {
+            this.modules.GLTFLoader = m.GLTFLoader;
+            window.GLTFLoader = m.GLTFLoader;
+            globalThis.GLTFLoader = m.GLTFLoader;
+          })
+        );
+        jobs.push(
+          loadAddon('/loaders/RGBELoader.js').then((m) => {
+            this.modules.RGBELoader = m.RGBELoader;
+            window.RGBELoader = m.RGBELoader;
+            globalThis.RGBELoader = m.RGBELoader;
+          })
+        );
+
+        await Promise.all(jobs);
+
+        const container =
+          containerElement ||
+          document.getElementById(this.containerId) ||
+          document.body;
+
+        this.scene = new THREE.Scene();
+
+        const rect = container.getBoundingClientRect();
+        const width = Math.max(1, rect.width || container.clientWidth || 640);
+        const height = Math.max(1, rect.height || container.clientHeight || 360);
+
+        const fov = this.options.fov || 50;
+        this.camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 2000);
+
+        if (this.options.cameraPos) {
+          this.camera.position.set(
+            this.options.cameraPos.x,
+            this.options.cameraPos.y,
+            this.options.cameraPos.z
+          );
         } else {
-          this.renderer.render(this.scene, this.camera);
+          this.camera.position.z = 5;
         }
-      });
 
-      return this;
-    }
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.0;
+
+        this.renderer.domElement.style.display = 'block';
+        this.renderer.domElement.style.width = '100%';
+        this.renderer.domElement.style.height = '100%';
+
+        this.renderer.setSize(width, height, false);
+        container.appendChild(this.renderer.domElement);
+
+        if (this.options.enableControls && this.modules.OrbitControls) {
+          this.controls = new this.modules.OrbitControls(
+            this.camera,
+            this.renderer.domElement
+          );
+          this.controls.enableDamping = true;
+          this.controls.dampingFactor = 0.05;
+        }
+
+        if (this.options.useRaycaster) this.raycaster = new THREE.Raycaster();
+        if (this.modules.GLTFLoader) this.loaders.gltf = new this.modules.GLTFLoader();
+
+        if (this.options.lighting !== false) {
+          this.setupStudioLighting();
+        }
+
+        if (this.options.environment !== false) {
+          const targetHdr = this.options.hdrPath || '/assets/venice_sunset_1k.hdr';
+          this.loadEnvironment(targetHdr).catch(err => {
+            console.warn('[ThreeJSLoader] Auto environment map note:', err.message);
+          });
+        }
+
+        window.addEventListener('resize', this._onResizeBound, false);
+
+        if (typeof ResizeObserver !== 'undefined') {
+          this._resizeObserver = new ResizeObserver(() => {
+            this._onResize();
+          });
+          this._resizeObserver.observe(container);
+        }
+
+        this.renderer.setAnimationLoop(() => {
+          // Critical GPU & context preservation: suspend rendering when instance is hidden or off-screen
+          if (this.isPaused) return;
+
+          if (this.controls) this.controls.update();
+          if (this.onUpdateCallback) {
+            try { this.onUpdateCallback(); } catch(e) {}
+          }
+          if (typeof this.customRender === 'function') {
+            this.customRender(this.renderer, this.scene, this.camera);
+          } else {
+            this.renderer.render(this.scene, this.camera);
+          }
+        });
+
+        return this;
+      }
   setupStudioLighting() {
     if (!this.scene || !this.THREE) return;
     const THREE = this.THREE;
@@ -409,6 +412,73 @@ class ThreeJSLoader {
       this.renderer.dispose();
     }
     window.removeEventListener('resize', this._onResizeBound);
+  }
+
+  async setupBloom(options = {}) {
+      if (!this.renderer || !this.scene || !this.camera) return null;
+      const THREE = this.THREE;
+
+      const CDN_BASE = 'https://cdn.jsdelivr.net/npm/three@0.153.0';
+      const THREE_URL = CDN_BASE + '/build/three.module.js';
+      const ADDONS = CDN_BASE + '/examples/jsm';
+
+      try {
+        const [mComposer, mRenderPass, mBloomPass, mShaderPass, mCopyShader] = await Promise.all([
+          this._fetchAndRewrite(ADDONS + '/postprocessing/EffectComposer.js', THREE_URL, 1).then(u => import(u)),
+          this._fetchAndRewrite(ADDONS + '/postprocessing/RenderPass.js', THREE_URL, 1).then(u => import(u)),
+          this._fetchAndRewrite(ADDONS + '/postprocessing/UnrealBloomPass.js', THREE_URL, 1).then(u => import(u)),
+          this._fetchAndRewrite(ADDONS + '/postprocessing/ShaderPass.js', THREE_URL, 1).then(u => import(u)),
+          this._fetchAndRewrite(ADDONS + '/shaders/CopyShader.js', THREE_URL, 1).then(u => import(u))
+        ]);
+
+        const size = this.renderer.getSize(new THREE.Vector2());
+        const composer = new mComposer.EffectComposer(this.renderer);
+        const renderPass = new mRenderPass.RenderPass(this.scene, this.camera);
+        composer.addPass(renderPass);
+
+        const strength = options.strength !== undefined ? options.strength : 1.25;
+        const radius = options.radius !== undefined ? options.radius : 0.6;
+        const threshold = options.threshold !== undefined ? options.threshold : 0.2;
+
+        const bloomPass = new mBloomPass.UnrealBloomPass(
+          new THREE.Vector2(size.x, size.y),
+          strength,
+          radius,
+          threshold
+        );
+        composer.addPass(bloomPass);
+
+        const copyPass = new mShaderPass.ShaderPass(mCopyShader.CopyShader);
+        copyPass.renderToScreen = true;
+        composer.addPass(copyPass);
+
+        this.composer = composer;
+        this.bloomPass = bloomPass;
+        this.isBloomActive = true;
+
+        // Swap default render pipeline to composer
+        this.customRender = () => {
+          if (this.isBloomActive && this.composer) {
+            this.composer.render();
+          } else {
+            this.renderer.render(this.scene, this.camera);
+          }
+        };
+
+        return this.composer;
+      } catch (err) {
+        console.warn('[ThreeJSLoader] Bloom post-processing setup note:', err.message);
+        this.isBloomActive = false;
+        return null;
+      }
+  }
+
+  setBloom(enabled = true) {
+      this.isBloomActive = Boolean(enabled);
+      if (!this.composer && enabled) {
+        this.setupBloom();
+      }
+      return this.isBloomActive;
   }
 }
 

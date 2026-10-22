@@ -457,99 +457,93 @@ class SliderControl {
     }
 
     attachEventHandlers() {
-      if (this.options.isInfiniteWheel) {
-        const onDown = (e) => {
-          e.preventDefault();
-          this._stopWheelInertia();
-          let lastX = e.clientX ?? e.touches?.[0]?.clientX;
-          
-          const onMove = (ev) => {
-            const currentX = ev.clientX ?? ev.touches?.[0]?.clientX;
-            if (currentX === undefined) return;
-            const dx = currentX - lastX;
-            lastX = currentX;
-            
-            this.wheelOffset += dx;
-            this.wheelVelocity = this.wheelVelocity * 0.3 + dx * 0.7; // Smooth velocity damping
-            this.drawWheel();
-            
-            if (this.options.callback) {
-              this.options.callback(dx);
-            }
-          };
-          
-          const onUp = () => {
-            window.removeEventListener('mousemove', onMove);
-            window.removeEventListener('mouseup', onUp);
-            window.removeEventListener('touchmove', onMove);
-            window.removeEventListener('touchend', onUp);
-            
-            if (Math.abs(this.wheelVelocity) > 0.5) {
-              this._startWheelInertia();
-            }
-          };
-          
-          window.addEventListener('mousemove', onMove);
-          window.addEventListener('mouseup', onUp);
-          window.addEventListener('touchmove', onMove, { passive: false });
-          window.addEventListener('touchend', onUp);
-        };
+        if (this.options.isInfiniteWheel) {
+          const onDown = (e) => {
+            e.preventDefault();
+            this._stopWheelInertia();
+            let lastX = e.clientX ?? e.touches?.[0]?.clientX;
 
-        this.wheelCanvas.addEventListener('mousedown', onDown);
-        this.wheelCanvas.addEventListener('touchstart', onDown, { passive: false });
-        return;
-      }
+            const onMove = (ev) => {
+              const currentX = ev.clientX ?? ev.touches?.[0]?.clientX;
+              if (currentX === undefined) return;
+              const dx = currentX - lastX;
+              lastX = currentX;
 
-      // Standard slider focus prevention
-      if (this.slider) {
-        this.slider.setAttribute('tabindex', '-1');
-        this.slider.addEventListener('focus', () => {
-          this.slider.blur();
-          const bc = window.baseController;
-          if (bc && bc.domElement) {
-            bc.domElement.focus();
+              this.wheelOffset += dx;
+              this.wheelVelocity = this.wheelVelocity * 0.3 + dx * 0.7;
+              this.drawWheel();
+
+              if (this.options.callback) {
+                this.options.callback(dx);
+              }
+            };
+
+            const onUp = () => {
+              window.removeEventListener('mousemove', onMove);
+              window.removeEventListener('mouseup', onUp);
+              window.removeEventListener('touchmove', onMove);
+              window.removeEventListener('touchend', onUp);
+
+              if (Math.abs(this.wheelVelocity) > 0.5) {
+                this._startWheelInertia();
+              }
+            };
+
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onUp);
+          };
+
+          this.wheelCanvas.addEventListener('mousedown', onDown);
+          this.wheelCanvas.addEventListener('touchstart', onDown, { passive: false });
+          return;
+        }
+
+        if (this.slider) {
+          this.slider.setAttribute('tabindex', '-1');
+        }
+
+        this.slider.addEventListener('input', (e) => {
+          this.value = this.convertToRealValue(e.target.value);
+          if (this.valueDisplay) {
+            this.valueDisplay.textContent = this.value.toFixed(1);
+            this.valueDisplay.style.display = 'block';
+          }
+          this.saveValue();
+          if (this.options.callback) {
+            this.options.callback(this.value);
+          }
+        });
+
+        this.slider.addEventListener('change', () => {
+          if (this.valueDisplay) {
+            this.valueDisplay.style.display = 'block';
+          }
+        });
+
+        this.midiEmoji.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleMidiInput();
+        });
+
+        this.midiInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            this.midiControl = e.target.value;
+            this.saveMidiControl();
+            this.hideMidiInput();
+          } else if (e.key === 'Escape') {
+            this.hideMidiInput();
+          }
+        });
+
+        document.addEventListener('click', (e) => {
+          if (this.midiBox && !this.midiBox.contains(e.target)) {
+            this.hideMidiInput();
           }
         });
       }
-
-      this.slider.addEventListener('input', (e) => {
-        this.value = this.convertToRealValue(e.target.value);
-        if (this.valueDisplay) {
-          this.valueDisplay.textContent = this.value.toFixed(1);
-          this.valueDisplay.style.display = 'block';
-        }
-        this.saveValue();
-        if (this.options.callback) {
-          this.options.callback(this.value);
-        }
-      });
-      this.slider.addEventListener('change', () => {
-        if (this.valueDisplay) {
-          this.valueDisplay.style.display = 'block';
-        }
-      });
-
-      this.midiEmoji.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.toggleMidiInput();
-      });
-      this.midiInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          this.midiControl = e.target.value;
-          this.saveMidiControl();
-          this.hideMidiInput();
-        } else if (e.key === 'Escape') {
-          this.hideMidiInput();
-        }
-      });
-      document.addEventListener('click', (e) => {
-        if (this.midiBox && !this.midiBox.contains(e.target)) {
-          this.hideMidiInput();
-        }
-      });
-    }
-
     toggleMidiInput() {
       if (this.midiBox.classList.contains('expanded')) {
         this.hideMidiInput();

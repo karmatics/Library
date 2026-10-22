@@ -298,11 +298,7 @@ class KeyCommandHandler {
   }
 
   static showFollowupBox(str, x, y) {
-      if (
-        typeof window !== 'undefined' &&
-        window.UITools &&
-        window.UITools.safeArea
-      ) {
+      if (window.UITools?.safeArea) {
         const safe = window.UITools.safeArea;
         if (x === window.innerWidth / 2) {
           x = safe.left + (window.innerWidth - safe.left - safe.right) / 2;
@@ -322,7 +318,6 @@ class KeyCommandHandler {
         }, 1100);
       }
     }
-
   static showSecondLevelCommandDone(which, returnVal) {
     let followup = null;
     let newKey = null;
@@ -556,21 +551,11 @@ class KeyCommandHandler {
       if (navigator.userAgent.toLowerCase().indexOf('android') === -1) {
         this.focus();
         this.keydownEventListener = (e) => {
-          // 1. Absolute Release: If keyboard handling is paused, ignore everything immediately
           if (this.isPaused) return;
 
           const tag = e.target?.tagName;
           const isTextInput = tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable;
-          
-          if (isTextInput) {
-            // Bypass shortcut triggers inside our own accudraw input boxes (so users can type coordinates)
-            if (e.target?.classList && e.target.classList.contains('accudrawInput')) {
-              return;
-            }
-            // 2. Absolute Grab: If focus is inside an external field, actively swallow keys to prevent leakage
-            e.preventDefault();
-            e.stopPropagation();
-          }
+          if (isTextInput) return;
 
           if (this.processInt(e.which, e)) {
             e.preventDefault();
@@ -589,7 +574,6 @@ class KeyCommandHandler {
         window.addEventListener('keydown', this.keydownEventListener);
       }
     }
-
   static getMenuOffset() {
       let x = 20; // Base padding from the safe edge
       let y = 180; // Pushed down to clear the header

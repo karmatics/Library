@@ -517,44 +517,35 @@ class SidePanel {
     }
 
     static updateGlobalSafeArea() {
-      if (typeof SidePanel._lastSafeAreaKey === 'undefined') {
-        SidePanel._lastSafeAreaKey = null;
-      }
-  
-      let l = 0;
-      let r = 0;
-  
-      if (!document.fullscreenElement) {
-        const leftPanel = SidePanel.getInstances().left;
-        if (leftPanel && leftPanel.element && leftPanel.isOpen) {
-          l = leftPanel.element.offsetWidth;
-        }
-  
-        const rightPanel = SidePanel.getInstances().right;
-        if (rightPanel && rightPanel.element && rightPanel.isOpen) {
-          r = rightPanel.element.offsetWidth;
-        }
-      }
-  
-      if (
-        typeof UITools !== 'undefined' &&
-        typeof UITools.setSafeArea === 'function'
-      ) {
-        UITools.setSafeArea({ left: l, right: r, top: 0, bottom: 0 });
-      }
-  
-      const currentKey = l + '-' + r + '-safearea';
-      if (SidePanel._lastSafeAreaKey === currentKey) {
-        return; 
-      }
-      SidePanel._lastSafeAreaKey = currentKey;
-  
-      const evt = new CustomEvent('layout-safe-area-change', {
-        detail: { left: l, right: r },
-      });
-      window.dispatchEvent(evt);
-    }
+        let l = 0;
+        let r = 0;
 
+        if (!document.fullscreenElement) {
+          const instances = SidePanel.getInstances();
+          const leftPanel = instances?.left;
+          const rightPanel = instances?.right;
+
+          if (leftPanel && leftPanel.element && leftPanel.isOpen && (!leftPanel.env || !leftPanel.env.container || leftPanel.env.container === document.body)) {
+            l = leftPanel.element.offsetWidth || leftPanel.width || 0;
+          }
+
+          if (rightPanel && rightPanel.element && rightPanel.isOpen && (!rightPanel.env || !rightPanel.env.container || rightPanel.env.container === document.body)) {
+            r = rightPanel.element.offsetWidth || rightPanel.width || 0;
+          }
+        }
+
+        if (typeof UITools !== 'undefined' && typeof UITools.setSafeArea === 'function') {
+          UITools.setSafeArea({ left: l, right: r, top: 0, bottom: 0 });
+        }
+
+        const currentKey = `${l}-${r}-safearea`;
+        SidePanel._lastSafeAreaKey = currentKey;
+
+        const evt = new CustomEvent('layout-safe-area-change', {
+          detail: { left: l, right: r },
+        });
+        window.dispatchEvent(evt);
+      }
     static sp_state() {
       if (!this._state) this._state = { instances: { left: null, right: null } };
       return this._state;
