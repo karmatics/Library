@@ -1,156 +1,64 @@
 class PopupBox {
-  static okCancelBox = null;
+  /**
+   * Authentic On-Screen Feedback Popup for KeyCommandHandler.
+   */
+  static activeBoxes = [];
 
-  static _isCssApplied = false;
+  static makeBox(rgb = [255, 235, 0], isTopLevel = false) {
+    const box = document.createElement('div');
+    box.className = 'keyShortcutBox' + (isTopLevel ? ' keyShortcutTopLevel' : '');
+    box.setAttribute('data-style-exclude', '');
 
-  static fade(elem) {
-    elem.style.transform = 'scale3d(0,1,1)';
-    elem.style.opacity = '0';
-    setTimeout(function () {
-      if (elem.parentNode) elem.parentNode.removeChild(elem);
-    }, 150);
-  }
+    const [r, g, b] = rgb;
+    Object.assign(box.style, {
+      position: 'fixed',
+      zIndex: '1000000',
+      padding: '8px 14px',
+      borderRadius: '6px',
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontSize: '13px',
+      fontWeight: 'bold',
+      lineHeight: '1.4',
+      background: `rgba(${r}, ${g}, ${b}, 0.95)`,
+      color: (r > 150 && g > 150) ? '#000000' : '#ffffff',
+      border: `1.5px solid rgba(0, 0, 0, 0.3)`,
+      boxShadow: '0 6px 22px rgba(0,0,0,0.6), 0 0 12px rgba(255,255,255,0.2)',
+      pointerEvents: 'none',
+      userSelect: 'none',
+      transition: 'opacity 0.2s ease, transform 0.2s ease',
+      opacity: '0',
+      transform: 'scale3d(0.9, 0.9, 1)'
+    });
 
-  static showBox(elem, scaleFromLeft, x, y, okCancelCb, parentElem) {
-    if (scaleFromLeft) {
-      elem.style.transform = 'scale3d(0,1,1)';
-      elem.style.transformOrigin = '0% 50%';
-    } else {
-      elem.style.transform = 'scale3d(1,0,1)';
-      elem.style.transformOrigin = '50% 50%';
-    }
-    parentElem = parentElem || document.body;
-    parentElem.appendChild(elem);
-    var h = elem.offsetHeight;
-    elem.style.left = x + 'px';
-    var t = y - h / 2;
-    if (t < 8) {
-      t = 8;
-    }
-    elem.style.top = t + 'px';
-    var w = elem.offsetWidth;
-    elem.style.transform = 'scale3d(1,1,1)';
-
-    if (okCancelCb) {
-      if (this.okCancelBox) {
-        this.cancel();
-      }
-      this.okCancelBox = {
-        elem: elem,
-        cb: okCancelCb,
-      };
-    }
+    PopupBox.activeBoxes.push(box);
+    return box;
   }
 
-  static ok() {
-    if (this.okCancelBox) {
-      var cb = this.okCancelBox.cb;
-      var elem = this.okCancelBox.elem;
-      this.okCancelBox = null;
-      this.fade(elem);
-      if (cb) cb(true);
-      return true;
-    }
-    return false;
-  }
+  static showBox(elem, animate = false, x = 20, y = 140) {
+    if (!elem) return;
+    elem.style.left = `${x}px`;
+    elem.style.top = `${y}px`;
+    document.body.appendChild(elem);
 
-  static cancel() {
-    if (this.okCancelBox) {
-      var cb = this.okCancelBox.cb;
-      var elem = this.okCancelBox.elem;
-      this.okCancelBox = null;
-      this.fade(elem);
-      if (cb) cb(false);
-      return true;
-    }
-    return false;
-  }
-
-  static init() {
-    // Bypassing the _isCssApplied check here to FORCE your beautiful original CSS to overwrite my bad changes!
-    // Load Architects Daughter from Google Fonts
-        if (!document.querySelector('link[href*="Architects+Daughter"]')) {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap';
-          document.head.appendChild(link);
-        }
-        applyCss(
-      `
-  @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap');
-  .keyShortcutBox span {
-    color: rgb(200,200,200);
-  }
-  .keyShortcutBox {
-    position: fixed;
-    padding:0 8px 8px 8px;
-    z-index: 2147483647;
-    border-style: solid;
-    box-shadow: 2px 2px 2px #000;
-    line-height: 28px;
-    transition: transform .15s ease-out, opacity .1s ease-in;
-    font-size: 25px;
-    font-family: 'Architects Daughter', sans-serif;
-    text-align: left;
-    text-shadow: 2px 2px 2px #000;
-    color: #eee;
-  }
-  .keyShortcutSingleCommandActive {
-  }
-  .keyShortcutSingleCommandDisabled {
-    opacity: 0.3;
-  }
-  .keyShortcutOpenRight {
-    border-radius: 5px 0 0 5px;
-    border-width: 2px 0 2px 2px;
-  }
-  .keyShortcutClosedRight {
-    border-radius: 5px;
-    border-width: 2px;
-  }
-  .keyShortcutBigLetter {
-    font-size: 50px;
-    position: relative;
-    top: 8px;
-  }
-  `,
-      'popupbox-styles'
-    );
-    this._isCssApplied = true;
-  }
-
-  static makeBox(rgb, isOpenRight) {
-    this.init();
-    return makeElement('div', {
-      className:
-        'keyShortcutBox keyShortcut' +
-        (isOpenRight ? 'Open' : 'Closed') +
-        'Right',
-      style: {
-        backgroundColor:
-          'rgba(' +
-          rgb[0] * 0.8 +
-          ',' +
-          rgb[1] * 0.8 +
-          ',' +
-          rgb[2] * 0.8 +
-          ',' +
-          (rgb[3] || 0.32) +
-          ')',
-        borderColor:
-          'rgb(' +
-          Math.floor(rgb[0] * 0.6) +
-          ',' +
-          Math.floor(rgb[1] * 0.6) +
-          ',' +
-          Math.floor(rgb[2] * 0.6) +
-          ')',
-      },
+    requestAnimationFrame(() => {
+      elem.style.opacity = '1';
+      elem.style.transform = 'scale3d(1, 1, 1)';
     });
   }
 
+  static ok() { return false; }
 
-  
-
-  
+  static cancel() {
+    if (PopupBox.activeBoxes.length > 0) {
+      PopupBox.activeBoxes.forEach(b => {
+        try { b.remove(); } catch(e) {}
+      });
+      PopupBox.activeBoxes = [];
+      return true;
+    }
+    return false;
+  }
 }
+
+globalThis.PopupBox = PopupBox;
+if (typeof module !== 'undefined' && module.exports) module.exports = PopupBox;
