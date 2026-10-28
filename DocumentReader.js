@@ -634,178 +634,209 @@ class DocumentReader {
     }
 
   _renderBlock(blockDef, doc) {
-        const blockId = blockDef.id;
-        const dossierId = this.options.dossierId || this.brandTitle;
+    const blockId = blockDef.id;
+    const dossierId = this.options.dossierId || this.brandTitle;
 
-        // 1. Resolve localized in-situ edits
-        let overrideText = null;
-        const DocEditor = this.documentEditor;
-        if (DocEditor) {
-          const ov = DocEditor.getOverride(this.currentPageId, blockId, dossierId);
-          if (ov) overrideText = ov.text;
-        }
+    // 1. Resolve localized in-situ edits
+    let overrideText = null;
+    const DocEditor = this.documentEditor;
+    if (DocEditor) {
+      const ov = DocEditor.getOverride(this.currentPageId, blockId, dossierId);
+      if (ov) overrideText = ov.text;
+    }
 
-        // 2. Component Mounts
-        if (blockDef.type === 'component') {
-          const mountId = `comp-mount-${blockId}-${Math.random().toString(36).substr(2, 6)}`;
-          const wrapper = makeElement('div', {
-            className: 'dr-component-mount-wrap',
-            id: mountId,
-            'data-block-id': blockId,
-            'data-block': blockId,
-            'data-component': blockDef.component,
-            style: { margin: '28px 0', width: '100%', position: 'relative' }
-          });
+    // 2. Interactive Component Mounts
+    if (blockDef.type === 'component') {
+      const mountId = `comp-mount-${blockId}-${Math.random().toString(36).substr(2, 6)}`;
+      const wrapper = makeElement('div', {
+        className: 'dr-component-mount-wrap',
+        id: mountId,
+        'data-block-id': blockId,
+        'data-block': blockId,
+        'data-component': blockDef.component,
+        style: { margin: '28px 0', width: '100%', position: 'relative' }
+      });
 
-          const compClass = globalThis[blockDef.component];
-          if (compClass) {
-            setTimeout(() => {
-              const el = document.getElementById(mountId);
-              if (el) {
-                if (typeof compClass.render === 'function') {
-                  compClass.render(el, blockDef.options || {});
-                } else if (typeof compClass.renderInteractiveWidget === 'function') {
-                  compClass.renderInteractiveWidget(el);
-                }
-              }
-            }, 0);
-          }
-          return wrapper;
-        }
-
-        // 3. Resolve block content
-        let rawItems = [];
-        if (overrideText) {
-          rawItems = Array.isArray(overrideText) ? overrideText : [overrideText];
-        } else {
-          const htmlContent = this.resolveHtmlBlockContent(this.currentPageId, blockId);
-          if (htmlContent) {
-            rawItems = [htmlContent];
-          } else if (typeof doc[blockId] === 'function') {
-            const val = doc[blockId]();
-            rawItems = Array.isArray(val) ? val : [val];
-          } else {
-            rawItems = ['[Content missing]'];
-          }
-        }
-
-        const wrapper = makeElement('div', {
-          className: `dr-block-wrapper ${this.selectedBlockId === blockId ? 'block-selected' : ''}`,
-          id: `block-${blockId}`,
-          'data-block-id': blockId,
-          'data-block': blockId,
-          onclick: () => this.selectBlock(blockId, false),
-          ondblclick: (e) => {
-            e.stopPropagation();
-            if (DocEditor) {
-              DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
-                this.renderCurrentDocument();
-              }, this);
+      const compClass = globalThis[blockDef.component];
+      if (compClass) {
+        setTimeout(() => {
+          const el = document.getElementById(mountId);
+          if (el) {
+            if (typeof compClass.render === 'function') {
+              compClass.render(el, blockDef.options || {});
+            } else if (typeof compClass.renderInteractiveWidget === 'function') {
+              compClass.renderInteractiveWidget(el);
             }
           }
-        });
-
-        // Active Revision Badge Pill
-        if (overrideText) {
-          const revBadge = makeElement('div', {
-            style: {
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)',
-              borderRadius: '12px', padding: '2px 8px', marginBottom: '8px', cursor: 'pointer'
-            },
-            onclick: (e) => {
-              e.stopPropagation();
-              if (DocEditor) {
-                DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
-                  this.renderCurrentDocument();
-                }, this);
-              }
-            }
-          }, [
-            makeElement('span', { style: { fontSize: '10px', color: '#f59e0b', fontWeight: 'bold', fontFamily: 'var(--cp-font-mono)' } }, '⚡ Active In-Situ Revision'),
-            makeElement('span', { style: { fontSize: '9.5px', color: '#cbd5e1' } }, '• Double-click to edit or copy patch')
-          ]);
-          wrapper.appendChild(revBadge);
-        }
-
-        if (blockDef.type === 'sidebar') {
-          const aside = makeElement('aside', { className: 'dr-block-sidebar' });
-          if (blockDef.kicker) {
-            aside.appendChild(makeElement('div', { className: 'dr-sidebar-kicker' }, blockDef.kicker));
-          }
-          if (blockDef.title) {
-            aside.appendChild(makeElement('div', { className: 'dr-sidebar-title' }, blockDef.title));
-          }
-          const body = makeElement('div', { className: 'dr-sidebar-body' });
-          rawItems.forEach(item => {
-            body.appendChild(this._renderFormattedBlockText(item));
-          });
-          aside.appendChild(body);
-          wrapper.appendChild(aside);
-        } else if (blockDef.type === 'quote') {
-          const bq = makeElement('blockquote', { className: 'dr-block-quote' });
-          rawItems.forEach(item => {
-            bq.appendChild(this._renderFormattedBlockText(item));
-          });
-          wrapper.appendChild(bq);
-        } else {
-          rawItems.forEach(item => {
-            const pEl = makeElement('div', { className: 'dr-block-p-wrap' });
-            pEl.appendChild(this._renderFormattedBlockText(item, true));
-            wrapper.appendChild(pEl);
-          });
-        }
-
-        // Action Hover Gutter Pill
-        const hoverPill = makeElement('div', { className: 'dr-hover-action-pill' });
-        if (overrideText) {
-          hoverPill.appendChild(makeElement('span', {
-            style: { fontSize: '9px', color: '#f59e0b', fontWeight: 'bold', marginRight: '4px' }
-          }, 'Edited'));
-        }
-
-        const ItemNotes = this.itemNotes;
-        const noteBtn = makeElement('button', {
-          className: 'dr-pill-btn dr-gutter-note-btn',
-          id: `btn-note-${blockId}`,
-          title: 'Attach Author Note / Living Directive [Hotkey: C / M in Aardvark]',
-          onclick: (e) => {
-            e.stopPropagation();
-            if (ItemNotes) {
-              ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => {
-                this._updateBlockNoteBadges();
-                this._populateSidePanelNotes();
-              }, this);
-            }
-          }
-        }, '📝 Note');
-        hoverPill.appendChild(noteBtn);
-
-        hoverPill.appendChild(makeElement('button', {
-          className: 'dr-pill-btn',
-          title: 'Edit Paragraph In-Situ [Hotkey: E or Double-Click]',
-          onclick: (e) => {
-            e.stopPropagation();
-            if (DocEditor) {
-              DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
-                this.renderCurrentDocument();
-              }, this);
-            }
-          }
-        }, '✎ Edit'));
-
-        hoverPill.appendChild(makeElement('button', {
-          className: 'dr-pill-btn',
-          title: 'Copy direct anchor link',
-          onclick: (e) => {
-            e.stopPropagation();
-            this.copyAnchorLink(this.currentPageId, blockId, e.currentTarget);
-          }
-        }, '🔗'));
-
-        wrapper.appendChild(hoverPill);
-        return wrapper;
+        }, 0);
       }
+      return wrapper;
+    }
+
+    // 3. Resolve block content
+    let rawItems = [];
+    if (overrideText) {
+      rawItems = Array.isArray(overrideText) ? overrideText : [overrideText];
+    } else {
+      const htmlContent = this.resolveHtmlBlockContent(this.currentPageId, blockId);
+      if (htmlContent) {
+        rawItems = [htmlContent];
+      } else if (typeof doc[blockId] === 'function') {
+        const val = doc[blockId]();
+        rawItems = Array.isArray(val) ? val : [val];
+      } else {
+        rawItems = ['[Content missing]'];
+      }
+    }
+
+    const wrapper = makeElement('div', {
+      className: `dr-block-wrapper ${this.selectedBlockId === blockId ? 'block-selected' : ''}`,
+      id: `block-${blockId}`,
+      'data-block-id': blockId,
+      'data-block': blockId,
+      onclick: () => this.selectBlock(blockId, false),
+      ondblclick: (e) => {
+        e.stopPropagation();
+        if (DocEditor) {
+          DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
+            this.renderCurrentDocument();
+          }, this);
+        }
+      }
+    });
+
+    // Active Revision Badge Pill
+    if (overrideText) {
+      const revBadge = makeElement('div', {
+        style: {
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)',
+          borderRadius: '12px', padding: '2px 8px', marginBottom: '8px', cursor: 'pointer'
+        },
+        onclick: (e) => {
+          e.stopPropagation();
+          if (DocEditor) {
+            DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
+              this.renderCurrentDocument();
+            }, this);
+          }
+        }
+      }, [
+        makeElement('span', { style: { fontSize: '10px', color: '#f59e0b', fontWeight: 'bold', fontFamily: 'var(--dr-font-mono)' } }, '⚡ Active In-Situ Revision'),
+        makeElement('span', { style: { fontSize: '9.5px', color: '#cbd5e1' } }, '• Double-click to edit or copy patch')
+      ]);
+      wrapper.appendChild(revBadge);
+    }
+
+    // Media & Layout Types
+    if (blockDef.type === 'image') {
+      wrapper.appendChild(this._renderImageBlock(blockDef, rawItems));
+    } else if (blockDef.type === 'image-group') {
+      wrapper.appendChild(this._renderImageGroupBlock(blockDef));
+    } else if (blockDef.type === 'youtube' || blockDef.type === 'video') {
+      wrapper.appendChild(this._renderYouTubeBlock(blockDef));
+    } else if (blockDef.type === 'link-card' || blockDef.type === 'bookmark') {
+      wrapper.appendChild(this._renderLinkCardBlock(blockDef));
+    } else if (blockDef.type === 'sidebar') {
+      const aside = makeElement('aside', { className: 'dr-block-sidebar' });
+      if (blockDef.kicker) {
+        aside.appendChild(makeElement('div', { className: 'dr-sidebar-kicker' }, blockDef.kicker));
+      }
+      if (blockDef.title) {
+        aside.appendChild(makeElement('div', { className: 'dr-sidebar-title' }, blockDef.title));
+      }
+      const body = makeElement('div', { className: 'dr-sidebar-body' });
+      rawItems.forEach(item => {
+        body.appendChild(this._renderFormattedBlockText(item));
+      });
+      aside.appendChild(body);
+      wrapper.appendChild(aside);
+    } else if (blockDef.type === 'quote') {
+      const bq = makeElement('blockquote', { className: 'dr-block-quote' });
+      rawItems.forEach(item => {
+        bq.appendChild(this._renderFormattedBlockText(item));
+      });
+      wrapper.appendChild(bq);
+    } else {
+      rawItems.forEach(item => {
+        const pEl = makeElement('div', { className: 'dr-block-p-wrap' });
+        pEl.appendChild(this._renderFormattedBlockText(item, true));
+        wrapper.appendChild(pEl);
+      });
+    }
+
+    // Gutter Action Hover Pill (Notes, Discussions, In-Situ Edits, Links)
+    const hoverPill = makeElement('div', { className: 'dr-hover-action-pill' });
+    if (overrideText) {
+      hoverPill.appendChild(makeElement('span', {
+        style: { fontSize: '9px', color: '#f59e0b', fontWeight: 'bold', marginRight: '4px' }
+      }, 'Edited'));
+    }
+
+    const ItemNotes = this.itemNotes;
+
+    // 1. Author Directives / Spec Note Button
+    const noteBtn = makeElement('button', {
+      className: 'dr-pill-btn dr-gutter-note-btn',
+      id: `btn-note-${blockId}`,
+      title: 'Attach Author Note / Living Directive [Hotkey: C / M in Aardvark]',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (ItemNotes) {
+          ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => {
+            this._updateBlockNoteBadges();
+            this._populateSidePanelNotes();
+          }, this, { defaultTab: 'note' });
+        }
+      }
+    }, '📝 Note');
+    hoverPill.appendChild(noteBtn);
+
+    // 2. Direct Public In-Situ Discussion Button
+    const discussBtn = makeElement('button', {
+      className: 'dr-pill-btn',
+      title: 'Open In-Situ Discussion Thread for this block',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (ItemNotes) {
+          ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => {
+            this._updateBlockNoteBadges();
+            this._populateSidePanelNotes();
+          }, this, { defaultTab: 'thread' });
+        } else {
+          this.openElementDiscussion(this.currentPageId, blockId, wrapper);
+        }
+      }
+    }, '💬 Discuss');
+    hoverPill.appendChild(discussBtn);
+
+    // 3. In-Situ Text Editor
+    hoverPill.appendChild(makeElement('button', {
+      className: 'dr-pill-btn',
+      title: 'Edit In-Situ [Hotkey: E or Double-Click]',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (DocEditor) {
+          DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
+            this.renderCurrentDocument();
+          }, this);
+        }
+      }
+    }, '✎ Edit'));
+
+    // 4. Copy Direct Anchor Link
+    hoverPill.appendChild(makeElement('button', {
+      className: 'dr-pill-btn',
+      title: 'Copy direct anchor link',
+      onclick: (e) => {
+        e.stopPropagation();
+        this.copyAnchorLink(this.currentPageId, blockId, e.currentTarget);
+      }
+    }, '🔗'));
+
+    wrapper.appendChild(hoverPill);
+    return wrapper;
+  }
   _formatText(text) {
     if (!text) return document.createTextNode('');
     const str = String(text);
@@ -1303,99 +1334,134 @@ static ${blockId}() {
     }
 
   async _updateBlockNoteBadges() {
-      const ItemNotes = this.itemNotes;
-      if (!ItemNotes) return;
+        const ItemNotes = this.itemNotes;
+        if (!ItemNotes) return;
 
-      const dossierId = this.options.dossierId || this.brandTitle;
-      const all = await ItemNotes.getAllNotes(dossierId);
-      const map = {};
-      const notesByBlock = {};
+        const dossierId = this.options.dossierId || this.brandTitle;
+        const all = await ItemNotes.getAllNotes(dossierId);
+        const map = {};
+        const notesByBlock = {};
 
-      all.forEach(n => {
-        if (n.status !== 'resolved') {
-          const key = `${n.pageId}:${n.blockId}`;
-          map[key] = (map[key] || 0) + 1;
-          notesByBlock[key] = notesByBlock[key] || [];
-          notesByBlock[key].push(n);
-        }
-      });
-
-      const doc = this.getCurrentDoc();
-
-      document.querySelectorAll('.dr-block-wrapper').forEach(wrapper => {
-        const blockId = wrapper.getAttribute('data-block-id');
-        if (!blockId) return;
-
-        const key = `${this.currentPageId}:${blockId}`;
-        const count = map[key] || 0;
-        const notesList = notesByBlock[key] || [];
-
-        const gutterBtn = wrapper.querySelector('.dr-gutter-note-btn');
-        let existingBanner = wrapper.querySelector('.dr-attached-notes-banner');
-
-        if (count > 0) {
-          wrapper.classList.add('has-attached-notes');
-          if (gutterBtn) {
-            gutterBtn.textContent = `📝${count}`;
-            gutterBtn.classList.add('has-notes');
+        all.forEach(n => {
+          if (n.status !== 'resolved') {
+            const key = `${n.pageId}:${n.blockId}`;
+            map[key] = (map[key] || 0) + 1;
+            notesByBlock[key] = notesByBlock[key] || [];
+            notesByBlock[key].push(n);
           }
+        });
 
-          const latestNote = notesList[notesList.length - 1];
-          const previewText = latestNote.text.length > 70 ? latestNote.text.substring(0, 70) + '...' : latestNote.text;
+        const doc = this.getCurrentDoc();
 
-          const onBannerClick = (e) => {
-            e.stopPropagation();
-            ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => {
-              this._updateBlockNoteBadges();
-              this._populateSidePanelNotes();
-            }, this);
-          };
+        document.querySelectorAll('.dr-block-wrapper').forEach(wrapper => {
+          const blockId = wrapper.getAttribute('data-block-id');
+          if (!blockId) return;
 
-          if (!existingBanner) {
-            const banner = makeElement('div', {
-              className: 'dr-attached-notes-banner',
-              title: 'Click to view, dictate, or edit attached thoughts',
-              onclick: onBannerClick
-            }, [
-              makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' } }, [
-                makeElement('span', { style: { fontSize: '13px', flexShrink: 0 } }, '📝'),
-                makeElement('strong', { style: { color: '#00f2fe', flexShrink: 0 } }, `${count} Directive${count === 1 ? '' : 's'}:`),
-                makeElement('span', { style: { color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `"${previewText}"`)
-              ]),
-              makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold', fontSize: '11px', flexShrink: 0 } }, 'View & Dictate ➔')
-            ]);
-            wrapper.appendChild(banner);
+          const key = `${this.currentPageId}:${blockId}`;
+          const count = map[key] || 0;
+          const notesList = notesByBlock[key] || [];
+          const testNote = notesList.find(n => n.status === 'test_ready');
+
+          const gutterBtn = wrapper.querySelector('.dr-gutter-note-btn');
+          let existingBanner = wrapper.querySelector('.dr-attached-notes-banner');
+
+          if (count > 0) {
+            wrapper.classList.add('has-attached-notes');
+            if (gutterBtn) {
+              gutterBtn.textContent = testNote ? '🧪' : `📝${count}`;
+              gutterBtn.classList.add('has-notes');
+              if (testNote) gutterBtn.style.color = '#c084fc';
+            }
+
+            if (testNote) {
+              // RENDER INTERACTIVE TEST DIRECTIVE BANNER
+              if (existingBanner) existingBanner.remove();
+
+              const testBanner = makeElement('div', {
+                className: 'dr-attached-notes-banner test-ready',
+                style: {
+                  background: 'rgba(192, 132, 252, 0.12)',
+                  border: '1.5px solid #c084fc',
+                  boxShadow: '0 0 16px rgba(192, 132, 252, 0.3)',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  marginTop: '10px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '12px'
+                }
+              }, [
+                makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1 } }, [
+                  makeElement('span', { style: { fontSize: '15px', flexShrink: 0 } }, '🧪'),
+                  makeElement('strong', { style: { color: '#d2a8ff', fontSize: '11px', fontFamily: 'monospace', flexShrink: 0 } }, 'TEST DIRECTIVE:'),
+                  makeElement('span', { style: { color: '#f8fafc', fontSize: '11.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, 
+                    testNote.testInstructions || testNote.text
+                  )
+                ]),
+                makeElement('button', {
+                  className: 'dr-nav-btn primary',
+                  style: {
+                    padding: '5px 12px', fontSize: '11px', fontWeight: 'bold',
+                    background: '#238636', borderColor: '#2ea043', color: '#fff', flexShrink: 0
+                  },
+                  onclick: async (e) => {
+                    e.stopPropagation();
+                    if (typeof CadPlanItemNotes !== 'undefined' && CadPlanItemNotes.playHapticChime) {
+                      CadPlanItemNotes.playHapticChime('verify');
+                    }
+                    await ItemNotes.updateNote(testNote.id, {
+                      status: 'resolved',
+                      verifiedTimestamp: Date.now()
+                    });
+                    if (typeof OutboxQueue !== 'undefined' && OutboxQueue.addItem) {
+                      OutboxQueue.addItem(`Verified: ${blockId}`, `✓ Confirmed working on [${blockId}]: ${testNote.testInstructions || testNote.text}`);
+                    }
+                    this._updateBlockNoteBadges();
+                    this._populateSidePanelNotes();
+                  }
+                }, '✓ Verified — Got It!')
+              ]);
+
+              wrapper.appendChild(testBanner);
+            } else {
+              // STANDARD DIRECTIVE BANNER
+              const latestNote = notesList[notesList.length - 1];
+              const previewText = latestNote.text.length > 70 ? latestNote.text.substring(0, 70) + '...' : latestNote.text;
+
+              const onBannerClick = (e) => {
+                e.stopPropagation();
+                ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => {
+                  this._updateBlockNoteBadges();
+                  this._populateSidePanelNotes();
+                }, this);
+              };
+
+              if (!existingBanner) {
+                const banner = makeElement('div', {
+                  className: 'dr-attached-notes-banner',
+                  onclick: onBannerClick
+                }, [
+                  makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' } }, [
+                    makeElement('span', { style: { fontSize: '13px' } }, '📝'),
+                    makeElement('strong', { style: { color: '#00f2fe' } }, `${count} Directive${count === 1 ? '' : 's'}:`),
+                    makeElement('span', { style: { color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `"${previewText}"`)
+                  ]),
+                  makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold', fontSize: '11px' } }, 'Open Studio ➔')
+                ]);
+                wrapper.appendChild(banner);
+              }
+            }
           } else {
-            existingBanner.innerHTML = '';
-            existingBanner.append(
-              makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' } }, [
-                makeElement('span', { style: { fontSize: '13px', flexShrink: 0 } }, '📝'),
-                makeElement('strong', { style: { color: '#00f2fe', flexShrink: 0 } }, `${count} Directive${count === 1 ? '' : 's'}:`),
-                makeElement('span', { style: { color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `"${previewText}"`)
-              ]),
-              makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold', fontSize: '11px', flexShrink: 0 } }, 'View & Dictate ➔')
-            );
+            wrapper.classList.remove('has-attached-notes');
+            if (gutterBtn) {
+              gutterBtn.textContent = '📝';
+              gutterBtn.classList.remove('has-notes');
+              gutterBtn.style.color = '';
+            }
+            if (existingBanner) existingBanner.remove();
           }
-        } else {
-          wrapper.classList.remove('has-attached-notes');
-          if (gutterBtn) {
-            gutterBtn.textContent = '📝';
-            gutterBtn.classList.remove('has-notes');
-          }
-          if (existingBanner) {
-            existingBanner.remove();
-          }
-        }
-      });
-
-      const totalActiveNotes = Object.values(map).reduce((sum, c) => sum + c, 0);
-      const navNotesBtn = document.getElementById('dr-btn-notes-prompt');
-      if (navNotesBtn) {
-        navNotesBtn.textContent = totalActiveNotes > 0 ? `⚡ Living Spec (${totalActiveNotes})` : '⚡ Living Spec';
-        navNotesBtn.style.color = totalActiveNotes > 0 ? '#00f2fe' : 'var(--cad-cyan)';
-      }
-
-      this._renderNotesNavigatorDock(all.filter(n => n.status !== 'resolved'));
+        });
     }
   _renderNotesNavigatorDock(activeNotes) {
       let dock = document.getElementById('dr-notes-nav-dock');
@@ -2048,35 +2114,60 @@ static ${blockId}() {
       flushList();
       return container;
   }
+
   _formatInlineTokens(text) {
-      if (!text) return document.createTextNode('');
-      const str = String(text);
-      const frag = document.createDocumentFragment();
+    if (!text) return document.createTextNode('');
+    const str = String(text);
+    const frag = document.createDocumentFragment();
 
-      // Tokenize for code (`...`), bold (**...**), and italic (*...*)
-      const tokenRegex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
-      const parts = str.split(tokenRegex);
+    // Tokenize for markdown links [text](url), inline code (`...`), bold (**...**), and italic (*...*)
+    const tokenRegex = /(\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+    const parts = str.split(tokenRegex);
 
-      for (const part of parts) {
-        if (!part) continue;
+    for (const part of parts) {
+      if (!part) continue;
 
-        if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
-          const code = makeElement('code', { className: 'dr-inline-code' }, part.slice(1, -1));
-          frag.appendChild(code);
-        } else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-          const strong = makeElement('strong', { className: 'dr-inline-strong' }, part.slice(2, -2));
-          frag.appendChild(strong);
-        } else if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
-          const em = makeElement('em', { className: 'dr-inline-em' }, part.slice(1, -1));
-          frag.appendChild(em);
-        } else {
-          frag.appendChild(document.createTextNode(part));
+      // 1. Markdown Links: [Anchor Text](https://...)
+      if (part.startsWith('[') && part.includes('](') && part.endsWith(')')) {
+        const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+        if (linkMatch) {
+          const a = makeElement('a', {
+            href: linkMatch[2],
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            className: 'dr-inline-link',
+            style: {
+              color: 'var(--cad-cyan, #00f2fe)',
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+              fontWeight: '600'
+            }
+          }, linkMatch[1]);
+          frag.appendChild(a);
+          continue;
         }
       }
 
-      return frag;
+      // 2. Inline Code: `code`
+      if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+        frag.appendChild(makeElement('code', { className: 'dr-inline-code' }, part.slice(1, -1)));
+      } 
+      // 3. Bold: **text**
+      else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+        frag.appendChild(makeElement('strong', { className: 'dr-inline-strong' }, part.slice(2, -2)));
+      } 
+      // 4. Italic: *text*
+      else if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+        frag.appendChild(makeElement('em', { className: 'dr-inline-em' }, part.slice(1, -1)));
+      } 
+      // 5. Plain Text
+      else {
+        frag.appendChild(document.createTextNode(part));
+      }
     }
 
+    return frag;
+  }
   openElementDiscussion(pageId, blockId, targetEl) {
     const dossierId = this.options?.dossierId || this.brandTitle || 'Dossier';
     const anchorThreadId = `thread_${dossierId}_${pageId}_${blockId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -2307,10 +2398,14 @@ static ${blockId}() {
         document.body.appendChild(drawer);
         if (btn) btn.style.background = '#8257e5';
     }
-  get itemNotes() {
-      return this.options.itemNotesClass || globalThis.CadPlanItemNotes || globalThis.DocumentItemNotes || null;
-    }
 
+  get itemNotes() {
+    return this.options.itemNotesClass || 
+           globalThis.CommentsItemNotes || 
+           globalThis.DocumentItemNotes || 
+           globalThis.CadPlanItemNotes || 
+           null;
+  }
   get documentEditor() {
       return this.options.editorClass || globalThis.CadPlanDocumentEditor || globalThis.DocumentEditor || null;
     }
@@ -2348,6 +2443,306 @@ static ${blockId}() {
       this._sectionObserver.observe(el);
     });
   }
+
+  _renderImageBlock(blockDef, rawItems = []) {
+    const caption = (rawItems.length > 0 && rawItems[0] !== '[Content missing]') ? rawItems[0] : (blockDef.caption || '');
+    const card = this._createThumbCard(blockDef.file || blockDef.src, blockDef.title, caption);
+    return makeElement('div', {
+      className: 'dr-media-block-wrap dr-image-single-wrap',
+      style: { margin: '18px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }
+    }, [card]);
+  }
+
+  _renderImageGroupBlock(blockDef) {
+    const isGrid4 = blockDef.layout === 'grid-4';
+    const grid = makeElement('div', {
+      className: 'dr-media-block-wrap dr-image-group-wrap',
+      style: {
+        display: 'grid',
+        gridTemplateColumns: isGrid4 ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '16px',
+        margin: '18px 0',
+        width: '100%'
+      }
+    });
+
+    (blockDef.images || []).forEach(img => {
+      grid.appendChild(this._createThumbCard(img.file || img.src, img.title, img.caption));
+    });
+
+    return grid;
+  }
+
+  _createThumbCard(fileName, title = '', caption = '') {
+    const fullPath = fileName.startsWith('http') ? fileName : `images/${fileName}`;
+    const thumbPath = fileName.startsWith('http') ? fileName : `images/thumbs/${fileName}`;
+
+    const card = makeElement('div', {
+      className: 'dr-thumb-card',
+      style: {
+        borderRadius: '8px',
+        overflow: 'hidden',
+        border: '1px solid var(--dr-border)',
+        background: 'var(--dr-card-bg)',
+        cursor: 'zoom-in',
+        transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
+      }
+    });
+
+    const img = makeElement('img', {
+      src: thumbPath,
+      alt: title || fileName,
+      loading: 'lazy',
+      style: { width: '100%', height: 'auto', display: 'block', objectFit: 'cover', aspectRatio: '16/10' }
+    });
+
+    img.onerror = () => { img.src = fullPath; };
+
+    card.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showLightbox(fullPath, title || caption);
+    });
+
+    card.appendChild(img);
+
+    if (title || caption) {
+      const metaBox = makeElement('div', { style: { padding: '8px 12px', fontSize: '0.78rem', color: 'var(--dr-text-subtle)' } });
+      if (title) metaBox.appendChild(makeElement('div', { style: { fontWeight: '700', color: 'var(--dr-text)' } }, title));
+      if (caption) metaBox.appendChild(makeElement('div', { style: { fontStyle: 'italic', marginTop: '2px' } }, caption));
+      card.appendChild(metaBox);
+    }
+
+    return card;
+  }
+
+  showLightbox(imagePath, captionText = '') {
+    const existing = document.querySelector('.dr-lightbox-popout');
+    if (existing) existing.remove();
+
+    const backdrop = makeElement('div', {
+      className: 'dr-lightbox-popout',
+      style: {
+        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+        backgroundColor: 'rgba(5, 8, 15, 0.92)', backdropFilter: 'blur(14px)',
+        zIndex: 100000, display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', alignItems: 'center', cursor: 'zoom-out'
+      }
+    });
+
+    const img = makeElement('img', {
+      src: imagePath,
+      style: {
+        maxWidth: '92vw', maxHeight: '85vh', objectFit: 'contain',
+        borderRadius: '8px', boxShadow: '0 20px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)'
+      }
+    });
+
+    backdrop.appendChild(img);
+
+    if (captionText) {
+      backdrop.appendChild(makeElement('div', {
+        style: {
+          marginTop: '12px', color: '#cbd5e1', fontSize: '0.88rem',
+          fontFamily: 'var(--dr-font-sans)', maxWidth: '680px', textAlign: 'center'
+        }
+      }, captionText));
+    }
+
+    const close = () => {
+      backdrop.remove();
+      window.removeEventListener('keydown', keyHandler);
+    };
+
+    const keyHandler = (e) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', keyHandler);
+    backdrop.addEventListener('click', close);
+
+    document.body.appendChild(backdrop);
+  }
+
+  _renderYouTubeBlock(blockDef) {
+    const videoId = blockDef.videoId || this._extractYouTubeId(blockDef.url);
+    const startTime = blockDef.start || blockDef.time || 0;
+    const title = blockDef.title || 'Video Reference';
+    const caption = blockDef.caption || '';
+
+    const wrap = makeElement('div', {
+      className: 'dr-media-block-wrap dr-youtube-wrap',
+      style: { margin: '24px 0', width: '100%' }
+    });
+
+    const frameContainer = makeElement('div', {
+      className: 'dr-video-container',
+      style: {
+        position: 'relative',
+        width: '100%',
+        paddingTop: '56.25%',
+        backgroundColor: '#070a13',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        border: '1.5px solid var(--dr-border)',
+        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
+        cursor: 'pointer'
+      }
+    });
+
+    // Lazy Thumbnail
+    const posterUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    const posterImg = makeElement('img', {
+      src: posterUrl,
+      alt: title,
+      style: {
+        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+        objectFit: 'cover', opacity: '0.85', transition: 'opacity 0.2s, transform 0.2s'
+      }
+    });
+    posterImg.onerror = () => { posterImg.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`; };
+
+    // Glowing Cyber Play Button
+    const playButton = makeElement('div', {
+      className: 'dr-video-play-btn',
+      style: {
+        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        width: '68px', height: '48px', backgroundColor: 'rgba(15, 23, 42, 0.85)',
+        backdropFilter: 'blur(8px)', border: '1.5px solid var(--cad-cyan, #00f2fe)',
+        borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 0 20px rgba(0, 242, 254, 0.4)', transition: 'all 0.18s ease'
+      }
+    }, [
+      makeElement('span', { style: { color: '#ffffff', fontSize: '20px', marginLeft: '3px' } }, '▶')
+    ]);
+
+    if (startTime > 0) {
+      const timeBadge = makeElement('div', {
+        style: {
+          position: 'absolute', bottom: '12px', right: '12px',
+          background: 'rgba(0,0,0,0.85)', color: '#00f2fe', padding: '3px 8px',
+          borderRadius: '6px', fontSize: '11px', fontFamily: 'var(--dr-font-mono)', fontWeight: 'bold'
+        }
+      }, `Starts @ ${Math.floor(startTime / 60)}:${String(startTime % 60).padStart(2, '0')}`);
+      frameContainer.appendChild(timeBadge);
+    }
+
+    // Click-to-Play Activation
+    frameContainer.addEventListener('click', () => {
+      frameContainer.innerHTML = '';
+      const iframe = makeElement('iframe', {
+        src: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${startTime}&rel=0`,
+        title: title,
+        style: {
+          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+          border: 'none'
+        },
+        allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+        allowFullscreen: 'true'
+      });
+      frameContainer.appendChild(iframe);
+    });
+
+    frameContainer.appendChild(posterImg);
+    frameContainer.appendChild(playButton);
+    wrap.appendChild(frameContainer);
+
+    if (title || caption) {
+      wrap.appendChild(makeElement('div', {
+        style: { marginTop: '8px', fontSize: '0.82rem', color: 'var(--dr-text-subtle)', textAlign: 'center', fontStyle: 'italic' }
+      }, caption ? `${title} — ${caption}` : title));
+    }
+
+    return wrap;
+  }
+
+  _extractYouTubeId(url) {
+    if (!url) return '';
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    return match ? match[1] : url;
+  }
+
+  _renderLinkCardBlock(blockDef) {
+    const url = blockDef.url || '#';
+    const title = blockDef.title || url;
+    let site = blockDef.site || '';
+    if (!site && url.startsWith('http')) {
+      try {
+        site = new URL(url).hostname.replace('www.', '');
+      } catch(e) {
+        site = 'Link';
+      }
+    }
+    const snippet = blockDef.snippet || blockDef.description || '';
+    const badge = blockDef.badge || 'Reference';
+
+    return makeElement('div', {
+      className: 'dr-media-block-wrap dr-link-card-wrap',
+      style: { margin: '20px 0' }
+    }, [
+      makeElement('a', {
+        href: url,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        style: {
+          display: 'flex', flexDirection: 'column', gap: '6px',
+          padding: '16px 20px', borderRadius: '10px',
+          background: 'var(--dr-card-bg)', border: '1px solid var(--dr-border)',
+          textDecoration: 'none', transition: 'all 0.16s ease',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.06)'
+        },
+        onmouseenter: (e) => {
+          e.currentTarget.style.borderColor = 'var(--cad-cyan, #00f2fe)';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+        },
+        onmouseleave: (e) => {
+          e.currentTarget.style.borderColor = 'var(--dr-border)';
+          e.currentTarget.style.transform = 'none';
+        }
+      }, [
+        makeElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
+          makeElement('span', {
+            style: {
+              fontSize: '0.68rem', fontWeight: '800', textTransform: 'uppercase',
+              letterSpacing: '0.08em', color: 'var(--cad-cyan, #00f2fe)',
+              background: 'rgba(0, 242, 254, 0.08)', padding: '2px 8px', borderRadius: '12px'
+            }
+          }, `🔗 ${site} • ${badge}`),
+          makeElement('span', { style: { fontSize: '0.8rem', color: 'var(--dr-muted)' } }, '↗')
+        ]),
+        makeElement('strong', { style: { fontSize: '1.05rem', color: 'var(--dr-text)', marginTop: '2px' } }, title),
+        snippet ? makeElement('p', { style: { fontSize: '0.85rem', color: 'var(--dr-text-subtle)', margin: 0, lineHeight: '1.45' } }, snippet) : null
+      ])
+    ]);
+  }
+
+  static _renderTestBanner(note, onClick) {
+      return makeElement('div', {
+        className: 'dr-attached-notes-banner test-ready',
+        style: {
+          background: 'rgba(192, 132, 252, 0.12)',
+          border: '1.5px solid #c084fc',
+          boxShadow: '0 0 14px rgba(192, 132, 252, 0.35)',
+          borderRadius: '6px',
+          padding: '6px 12px',
+          marginTop: '8px',
+          color: '#e2e8f0',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        },
+        onclick: onClick
+      }, [
+        makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' } }, [
+          makeElement('span', { style: { fontSize: '13px' } }, '🧪'),
+          makeElement('strong', { style: { color: '#d2a8ff' } }, 'Test Directive:'),
+          makeElement('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, 
+            note.testInstructions || 'Patch ready for live verification.'
+          )
+        ]),
+        makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold' } }, 'Test & Verify ➔')
+      ]);
+    }
 }
 
 globalThis.DocumentReader = DocumentReader;

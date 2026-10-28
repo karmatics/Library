@@ -303,165 +303,166 @@ class UITools {
   }
 
   _buildDialog() {
-      const o = this.options;
-      const compact = o.compact;
+        const o = this.options;
+        const compact = o.compact;
 
-      const btnNodes = [];
-      if (o.allowTransparency)
-        btnNodes.push(this._utilBtn('◑', 'Transparency', () => this.toggleTransparency()));
-      if (o.allowMinimize)
-        btnNodes.push(this._utilBtn('▁', 'Minimize', () => this.toggleMinimize()));
-      if (o.allowMaximize)
-        btnNodes.push(this._utilBtn('⊙', 'Maximize', () => this.toggleMaximize()));
-      btnNodes.push(this._closeBtn());
+        const btnNodes = [];
+        if (o.allowTransparency)
+          btnNodes.push(this._utilBtn('◑', 'Transparency', () => this.toggleTransparency()));
+        if (o.allowMinimize)
+          btnNodes.push(this._utilBtn('▁', 'Minimize', () => this.toggleMinimize()));
+        if (o.allowMaximize)
+          btnNodes.push(this._utilBtn('⊙', 'Maximize', () => this.toggleMaximize()));
+        btnNodes.push(this._closeBtn());
 
-      const ctrls = UITools._el('div', { className: 'uw-controls' }, btnNodes);
+        const ctrls = UITools._el('div', { className: 'uw-controls' }, btnNodes);
 
-      const headerChildren = [];
-      if (!compact)
-        headerChildren.push(UITools._el('div', { className: 'uw-swipe-hint' }));
-      headerChildren.push(
-        UITools._el('span', { className: 'uw-title' }, o.title)
-      );
+        const headerChildren = [];
+        if (!compact)
+          headerChildren.push(UITools._el('div', { className: 'uw-swipe-hint' }));
+        headerChildren.push(
+          UITools._el('span', { className: 'uw-title' }, o.title)
+        );
 
-      if (o.customHeaderControls) {
-        headerChildren.push(o.customHeaderControls);
-      }
-
-      headerChildren.push(ctrls);
-
-      this.header = UITools._el(
-        'div',
-        { className: `uw-header${compact ? ' uw-header-compact' : ''}` },
-        headerChildren
-      );
-
-      // Resolve and prepare inner content element
-      if (o.contentElement) {
-        this.contentElement = o.contentElement;
-
-        this._preContentAttributes = Array.from(this.contentElement.attributes).map(attr => ({
-          name: attr.name,
-          value: attr.value
-        }));
-
-        while (this.contentElement.attributes.length > 0) {
-          this.contentElement.removeAttribute(this.contentElement.attributes[0].name);
+        if (o.customHeaderControls) {
+          headerChildren.push(o.customHeaderControls);
         }
-      } else {
-        this.contentElement = document.createElement('div');
-        if (o.content instanceof Node) {
-          this.contentElement.appendChild(o.content);
-        } else if (typeof o.content === 'string') {
-          this.contentElement.innerHTML = o.content;
-        }
-      }
 
-      this.contentElement.className = 'uw-content';
-      if (o.noPadding) this.contentElement.style.padding = '0';
+        headerChildren.push(ctrls);
 
-      this._sizers = this._makeCorners();
+        this.header = UITools._el(
+          'div',
+          { className: `uw-header${compact ? ' uw-header-compact' : ''}` },
+          headerChildren
+        );
 
-      // Resolve and prepare outer container
-      if (o.element) {
-        this.element = o.element;
-        while (this.element.attributes.length > 0) {
-          this.element.removeAttribute(this.element.attributes[0].name);
-        }
-      } else {
-        this.element = document.createElement('div');
-      }
+        // Resolve and prepare inner content element
+        if (o.contentElement) {
+          this.contentElement = o.contentElement;
 
-      this.element.className = 'uw-dialog';
-      if (o.transparent) this.element.classList.add('uw-transparent');
-      if (o.titleBarAtBottom) this.element.classList.add('uw-title-bottom');
-      if (compact) this.element.classList.add('uw-dialog-compact');
+          this._preContentAttributes = Array.from(this.contentElement.attributes).map(attr => ({
+            name: attr.name,
+            value: attr.value
+          }));
 
-      // Attach to document.body by default so dialogs can move anywhere across the app window/iframe
-      this.container = (o.constrainToContainer && o.appendTo) ? o.appendTo : document.body;
-
-      if (this.contentElement.parentNode !== this.element) {
-        this.element.appendChild(this.contentElement);
-      }
-      this.element.insertBefore(this.header, this.contentElement);
-
-      Array.from(this.element.children).forEach(child => {
-        if (child.classList.contains('uw-header') && child !== this.header) {
-          child.remove();
-        }
-      });
-
-      this._sizers.forEach(sizer => {
-        if (sizer.parentNode !== this.element) {
-          this.element.appendChild(sizer);
-        }
-      });
-
-      if (o.buttons && o.buttons.length > 0) {
-        this._buildFooter();
-      }
-
-      if (this.footer && this.footer.parentNode !== this.element) {
-        this.element.appendChild(this.footer);
-      }
-
-      this.element.addEventListener('mousedown', () => this.bringToFront(), {
-        capture: true,
-        passive: true,
-      });
-      this.element.addEventListener('touchstart', () => this.bringToFront(), {
-        capture: true,
-        passive: true,
-      });
-
-      this._setZ();
-      this._restoreState();
-
-      const isHiddenMode = UITools.creationVisibilityMode === 'hidden';
-      this.element.style.opacity = isHiddenMode ? '0.01' : '0';
-      this.element.style.transform = isHiddenMode ? 'none' : 'scale(0.92)';
-
-      if (!this._restored) {
-        this.element.style.width = o.width;
-        this.element.style.height = o.height;
-        if (o.position) {
-          this.element.style.left = `${o.position[0]}px`;
-          this.element.style.top = `${o.position[1]}px`;
-        } else {
-          this._smartDialogPos();
-        }
-      }
-
-      this._listenDragDialog();
-      this._listenResizeDialog();
-      UITools._getState().activeCount++;
-
-      this.container.appendChild(this.element);
-
-      // Default to fixed positioning so the dialog is free to traverse the entire window/tab/iframe
-      if (o.constrainToContainer && this.container !== document.body) {
-        this.element.style.position = 'absolute';
-      } else {
-        this.element.style.position = 'fixed';
-      }
-
-      this._setupLifecycleObserver();
-      this._softClamp();
-      if (this.callback) this.triggerCallback();
-
-      if (!isHiddenMode) {
-        void this.element.offsetHeight;
-        this.element.style.transition = 'opacity 0.2s ease-out, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
-        this.element.style.opacity = '1';
-        this.element.style.transform = 'none';
-
-        setTimeout(() => {
-          if (this.element) {
-            this.element.style.transition = '';
+          while (this.contentElement.attributes.length > 0) {
+            this.contentElement.removeAttribute(this.contentElement.attributes[0].name);
           }
-        }, 250);
+        } else {
+          this.contentElement = document.createElement('div');
+          if (o.content instanceof Node) {
+            this.contentElement.appendChild(o.content);
+          } else if (typeof o.content === 'string') {
+            this.contentElement.innerHTML = o.content;
+          }
+        }
+
+        this.contentElement.className = 'uw-content';
+        if (o.noPadding) this.contentElement.style.padding = '0';
+
+        this._sizers = this._makeCorners();
+
+        // Resolve and prepare outer container
+        if (o.element) {
+          this.element = o.element;
+          while (this.element.attributes.length > 0) {
+            this.element.removeAttribute(this.element.attributes[0].name);
+          }
+        } else {
+          this.element = document.createElement('div');
+        }
+
+        this.element.className = 'uw-dialog';
+        if (o.transparent) this.element.classList.add('uw-transparent');
+        if (o.contentTransparent) this.element.classList.add('uw-content-transparent');
+        if (o.titleBarAtBottom) this.element.classList.add('uw-title-bottom');
+        if (compact) this.element.classList.add('uw-dialog-compact');
+
+        // Attach to document.body by default so dialogs can move anywhere across the app window/iframe
+        this.container = (o.constrainToContainer && o.appendTo) ? o.appendTo : document.body;
+
+        if (this.contentElement.parentNode !== this.element) {
+          this.element.appendChild(this.contentElement);
+        }
+        this.element.insertBefore(this.header, this.contentElement);
+
+        Array.from(this.element.children).forEach(child => {
+          if (child.classList.contains('uw-header') && child !== this.header) {
+            child.remove();
+          }
+        });
+
+        this._sizers.forEach(sizer => {
+          if (sizer.parentNode !== this.element) {
+            this.element.appendChild(sizer);
+          }
+        });
+
+        if (o.buttons && o.buttons.length > 0) {
+          this._buildFooter();
+        }
+
+        if (this.footer && this.footer.parentNode !== this.element) {
+          this.element.appendChild(this.footer);
+        }
+
+        this.element.addEventListener('mousedown', () => this.bringToFront(), {
+          capture: true,
+          passive: true,
+        });
+        this.element.addEventListener('touchstart', () => this.bringToFront(), {
+          capture: true,
+          passive: true,
+        });
+
+        this._setZ();
+        this._restoreState();
+
+        const isHiddenMode = UITools.creationVisibilityMode === 'hidden';
+        this.element.style.opacity = isHiddenMode ? '0.01' : '0';
+        this.element.style.transform = isHiddenMode ? 'none' : 'scale(0.92)';
+
+        if (!this._restored) {
+          this.element.style.width = o.width;
+          this.element.style.height = o.height;
+          if (o.position) {
+            this.element.style.left = `${o.position[0]}px`;
+            this.element.style.top = `${o.position[1]}px`;
+          } else {
+            this._smartDialogPos();
+          }
+        }
+
+        this._listenDragDialog();
+        this._listenResizeDialog();
+        UITools._getState().activeCount++;
+
+        this.container.appendChild(this.element);
+
+        // Default to fixed positioning so the dialog is free to traverse the entire window/tab/iframe
+        if (o.constrainToContainer && this.container !== document.body) {
+          this.element.style.position = 'absolute';
+        } else {
+          this.element.style.position = 'fixed';
+        }
+
+        this._setupLifecycleObserver();
+        this._softClamp();
+        if (this.callback) this.triggerCallback();
+
+        if (!isHiddenMode) {
+          void this.element.offsetHeight;
+          this.element.style.transition = 'opacity 0.2s ease-out, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
+          this.element.style.opacity = '1';
+          this.element.style.transform = 'none';
+
+          setTimeout(() => {
+            if (this.element) {
+              this.element.style.transition = '';
+            }
+          }, 250);
+        }
       }
-    }
   _buildWidgetDocked() {
     const o = this.options;
     const phDot = UITools._el('div', {
@@ -1974,342 +1975,346 @@ class UITools {
   }
 
   static _applyStyles() {
-      if (UITools._getState().styled) return;
-      UITools._getState().styled = true;
-      const css = `
-          :root {
-            --uw-bg: rgba(22, 24, 30, 0.98);
-            --uw-border: rgba(255,255,255,0.08);
-            --uw-text: #ced6e0;
-            --uw-title: rgba(255,255,255,0.45);
-            --uw-btn-bg: rgba(255,255,255,0.06);
-            --uw-btn-hover: rgba(255,255,255,0.12);
-            --uw-hdr-bg: rgba(255,255,255,0.015);
-            --uw-ctrl-bg: rgba(0,0,0,0.3);
-            --uw-float-bg: rgba(14, 16, 22, 0.98);
-            --uw-ph-bg: rgba(255,255,255,0.015);
-            --uw-ph-border: rgba(255,255,255,0.08);
-          }
-          .uw-light-mode {
-            --uw-bg: rgba(245, 245, 245, 0.98);
-            --uw-border: rgba(0,0,0,0.15);
-            --uw-text: #222;
-            --uw-title: rgba(0,0,0,0.6);
-            --uw-btn-bg: rgba(0,0,0,0.06);
-            --uw-btn-hover: rgba(0,0,0,0.12);
-            --uw-hdr-bg: rgba(0,0,0,0.05);
-            --uw-ctrl-bg: #fff;
-            --uw-float-bg: rgba(250, 250, 250, 0.98);
-            --uw-ph-bg: rgba(0,0,0,0.03);
-            --uw-ph-border: rgba(0,0,0,0.15);
-          }
+        if (UITools._getState().styled) return;
+        UITools._getState().styled = true;
+        const css = `
+            :root {
+              --uw-bg: rgba(22, 24, 30, 0.98);
+              --uw-border: rgba(255,255,255,0.08);
+              --uw-text: #ced6e0;
+              --uw-title: rgba(255,255,255,0.45);
+              --uw-btn-bg: rgba(255,255,255,0.06);
+              --uw-btn-hover: rgba(255,255,255,0.12);
+              --uw-hdr-bg: rgba(255,255,255,0.015);
+              --uw-ctrl-bg: rgba(0,0,0,0.3);
+              --uw-float-bg: rgba(14, 16, 22, 0.98);
+              --uw-ph-bg: rgba(255,255,255,0.015);
+              --uw-ph-border: rgba(255,255,255,0.08);
+            }
+            .uw-light-mode {
+              --uw-bg: rgba(245, 245, 245, 0.98);
+              --uw-border: rgba(0,0,0,0.15);
+              --uw-text: #222;
+              --uw-title: rgba(0,0,0,0.6);
+              --uw-btn-bg: rgba(0,0,0,0.06);
+              --uw-btn-hover: rgba(0,0,0,0.12);
+              --uw-hdr-bg: rgba(0,0,0,0.05);
+              --uw-ctrl-bg: #fff;
+              --uw-float-bg: rgba(250, 250, 250, 0.98);
+              --uw-ph-bg: rgba(0,0,0,0.03);
+              --uw-ph-border: rgba(0,0,0,0.15);
+            }
 
-          .uw-dialog {
-            position: fixed; box-sizing: border-box; display: flex; flex-direction: column;
-            background: var(--uw-bg); 
-            border: 1px solid var(--uw-border); border-radius: 12px;
-            box-shadow: 0 14px 28px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
-            min-width: 0; min-height: 0;
-            overflow: visible;
-            top: 50%; left: 50%; transform: translate(-50%,-50%);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            font-size: 13px; line-height: 1.5; color: var(--uw-text);
-          }
-          .uw-dialog:focus-within { box-shadow: 0 0 0 1px rgba(100,180,255,0.3), 0 14px 28px rgba(0,0,0,0.8); }
-          .uw-dialog.uw-snapped { border-radius: 0; transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
-          .uw-dialog.uw-maximized { border-radius:0!important; border:none!important; box-shadow:none!important; }
-          .uw-dialog.uw-maximized .uw-header { cursor:default; }
-          .uw-dialog.uw-maximized .uw-corner,
-          .uw-dialog.uw-minimized .uw-corner { display: none !important; }
-          .uw-dialog.uw-minimized .uw-content { opacity: 0; pointer-events: none; }
+            .uw-dialog {
+              position: fixed; box-sizing: border-box; display: flex; flex-direction: column;
+              background: var(--uw-bg); 
+              border: 1px solid var(--uw-border); border-radius: 12px;
+              box-shadow: 0 14px 28px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+              min-width: 0; min-height: 0;
+              overflow: visible;
+              top: 50%; left: 50%; transform: translate(-50%,-50%);
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+              font-size: 13px; line-height: 1.5; color: var(--uw-text);
+            }
+            .uw-dialog:focus-within { box-shadow: 0 0 0 1px rgba(100,180,255,0.3), 0 14px 28px rgba(0,0,0,0.8); }
+            .uw-dialog.uw-snapped { border-radius: 0; transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+            .uw-dialog.uw-maximized { border-radius:0!important; border:none!important; box-shadow:none!important; }
+            .uw-dialog.uw-maximized .uw-header { cursor:default; }
+            .uw-dialog.uw-maximized .uw-corner,
+            .uw-dialog.uw-minimized .uw-corner { display: none !important; }
+            .uw-dialog.uw-minimized .uw-content { opacity: 0; pointer-events: none; }
 
-          .uw-dialog.uw-minimized .fp-search-wrapper { display: none !important; }
-          .uw-dialog.uw-minimized .uw-title { display: block !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .uw-dialog.uw-minimized .fp-search-wrapper { display: none !important; }
+            .uw-dialog.uw-minimized .uw-title { display: block !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-          .uw-header {
-            display: flex; align-items: center; gap: 4px;
-            padding: 4px 8px; min-height: 28px; flex-shrink: 0;
-            background: var(--uw-hdr-bg); border-bottom: 1px solid var(--uw-border);
-            border-radius: 12px 12px 0 0; cursor: move; user-select: none; touch-action: none;
-            position: relative;
-            z-index: 40;
-          }
-          .uw-header-compact { padding: 2px 6px !important; min-height: 22px !important; }
-          .uw-title {
-            font-size: 11px; font-weight: 600; color: var(--uw-title);
-            flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
-            letter-spacing: 0.02em; text-transform: uppercase;
-          }
+            .uw-header {
+              display: flex; align-items: center; gap: 4px;
+              padding: 4px 8px; min-height: 28px; flex-shrink: 0;
+              background: var(--uw-hdr-bg); border-bottom: 1px solid var(--uw-border);
+              border-radius: 12px 12px 0 0; cursor: move; user-select: none; touch-action: none;
+              position: relative;
+              z-index: 40;
+            }
+            .uw-header-compact { padding: 2px 6px !important; min-height: 22px !important; }
+            .uw-title {
+              font-size: 11px; font-weight: 600; color: var(--uw-title);
+              flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+              letter-spacing: 0.02em; text-transform: uppercase;
+            }
 
-          /* Controls have high z-index stacking to guarantee clicks reach the close button */
-          .uw-controls { 
-            display: flex; 
-            align-items: center; 
-            gap: 2px; 
-            flex-shrink: 0; 
-            position: relative;
-            z-index: 100 !important;
-            pointer-events: auto !important;
-          }
-          .uw-util-btn, .uw-close-btn {
-            background: none; border: none; cursor: pointer; color: var(--uw-title);
-            width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
-            border-radius: 4px; font-size: 11px; padding: 0; transition: all 0.12s; touch-action: manipulation;
-            position: relative;
-            z-index: 100 !important;
-            pointer-events: auto !important;
-          }
-          .uw-util-btn:hover { background: var(--uw-btn-hover); color: var(--uw-text); }
-          .uw-close-btn { color: rgba(255,255,255,0.7); }
-          .uw-close-btn:hover { background: #e53935 !important; color: #ffffff !important; }
+            /* Controls have high z-index stacking to guarantee clicks reach the close button */
+            .uw-controls { 
+              display: flex; 
+              align-items: center; 
+              gap: 2px; 
+              flex-shrink: 0; 
+              position: relative;
+              z-index: 100 !important;
+              pointer-events: auto !important;
+            }
+            .uw-util-btn, .uw-close-btn {
+              background: none; border: none; cursor: pointer; color: var(--uw-title);
+              width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+              border-radius: 4px; font-size: 11px; padding: 0; transition: all 0.12s; touch-action: manipulation;
+              position: relative;
+              z-index: 100 !important;
+              pointer-events: auto !important;
+            }
+            .uw-util-btn:hover { background: var(--uw-btn-hover); color: var(--uw-text); }
+            .uw-close-btn { color: rgba(255,255,255,0.7); }
+            .uw-close-btn:hover { background: #e53935 !important; color: #ffffff !important; }
 
-          .uw-content {
-            position: relative;
-            padding: 14px; flex-grow: 1; overflow: auto; background: transparent; color: var(--uw-text);
-            -webkit-overflow-scrolling: touch; overscroll-behavior: contain; transition: opacity 0.2s;
-          }
+            .uw-content {
+              position: relative;
+              padding: 14px; flex-grow: 1; overflow: auto; background: transparent; color: var(--uw-text);
+              -webkit-overflow-scrolling: touch; overscroll-behavior: contain; transition: opacity 0.2s;
+            }
 
-          .uw-content label {
-            display: block;
-            margin-bottom: 4px;
-            font-weight: 500;
-            color: rgba(255,255,255,0.7);
-            font-size: 12px;
-          }
-          .uw-content input[type="text"], 
-          .uw-content input[type="number"], 
-          .uw-content select {
-            width: 100%;
-            padding: 7px 10px;
-            margin-bottom: 12px;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.15);
-            color: var(--uw-text);
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-family: inherit;
-            transition: border-color 0.2s, box-shadow 0.2s;
-          }
-          .uw-content input[type="text"]:focus, 
-          .uw-content input[type="number"]:focus, 
-          .uw-content select:focus {
-            border-color: rgba(100, 180, 255, 0.6);
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(100, 180, 255, 0.15);
-          }
-          .uw-content .form-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 12px;
-            gap: 12px;
-          }
-          .uw-content .form-row label {
-            margin-bottom: 0;
-            flex-shrink: 0;
-          }
+            .uw-content label {
+              display: block;
+              margin-bottom: 4px;
+              font-weight: 500;
+              color: rgba(255,255,255,0.7);
+              font-size: 12px;
+            }
+            .uw-content input[type="text"], 
+            .uw-content input[type="number"], 
+            .uw-content select {
+              width: 100%;
+              padding: 7px 10px;
+              margin-bottom: 12px;
+              background: rgba(0,0,0,0.3);
+              border: 1px solid rgba(255,255,255,0.15);
+              color: var(--uw-text);
+              border-radius: 6px;
+              box-sizing: border-box;
+              font-family: inherit;
+              transition: border-color 0.2s, box-shadow 0.2s;
+            }
+            .uw-content input[type="text"]:focus, 
+            .uw-content input[type="number"]:focus, 
+            .uw-content select:focus {
+              border-color: rgba(100, 180, 255, 0.6);
+              outline: none;
+              box-shadow: 0 0 0 2px rgba(100, 180, 255, 0.15);
+            }
+            .uw-content .form-row {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-bottom: 12px;
+              gap: 12px;
+            }
+            .uw-content .form-row label {
+              margin-bottom: 0;
+              flex-shrink: 0;
+            }
 
-          .uw-footer {
-            padding: 8px 14px; background: rgba(0,0,0,0.15); border-top: 1px solid var(--uw-border);
-            display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; border-radius: 0 0 12px 12px;
+            .uw-footer {
+              padding: 8px 14px; background: rgba(0,0,0,0.15); border-top: 1px solid var(--uw-border);
+              display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; border-radius: 0 0 12px 12px;
+            }
+            .uw-btn {
+              padding: 6px 14px; background: var(--uw-btn-bg); color: var(--uw-text); border: 1px solid var(--uw-border);
+              border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s;
+            }
+            .uw-btn:hover { background: var(--uw-btn-hover); color: var(--uw-text); transform: translateY(-1px); }
+            .uw-btn.primary { background: #2962ff; border-color: #2979ff; color: #fff; }
+            .uw-btn.primary:hover { background: #448aff; box-shadow: 0 2px 8px rgba(41,98,255,0.4); }
+
+            .uw-transparent { background:transparent!important; border:none!important; box-shadow:none!important; backdrop-filter:none!important; }
+            .uw-transparent .uw-header { background: rgba(0,0,0,0.3)!important; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 4px; }
+            .uw-transparent .uw-content { background:transparent!important; padding: 0; }
+            .uw-transparent .uw-footer { display:none!important; }
+
+            /* Content-Only Transparency (Preserves Header and Border solidness) */
+            .uw-content-transparent { background: transparent !important; backdrop-filter: none !important; }
+            .uw-content-transparent .uw-content { background: transparent !important; backdrop-filter: none !important; }
+
+            /* Dialog corner arc handles */
+            .uw-corner {
+              position: absolute;
+              width: 15px;
+              height: 15px;
+              z-index: 20;
+              opacity: 0.9 !important;
+              touch-action: none;
+              user-select: none;
+            }
+            .uw-corner svg {
+              display: block !important;
+            }
+            .uw-corner:hover {
+              opacity: 1 !important;
+              transform: scale(1.12);
+            }
+
+            /* Bottom and left corners can have general hit padding */
+            .uw-c-br::after, .uw-c-bl::after, .uw-c-tl::after {
+              content: '';
+              position: absolute;
+              top: -8px;
+              bottom: -8px;
+              left: -8px;
+              right: -8px;
+              touch-action: none;
+              cursor: inherit;
+            }
+            /* Top-right corner hit target expands strictly outward to prevent covering close button */
+            .uw-c-tr::after {
+              content: '';
+              position: absolute;
+              top: -8px;
+              right: -8px;
+              width: 15px;
+              height: 15px;
+              touch-action: none;
+              cursor: inherit;
+            }
+
+            .uw-w-wrap { margin: 2px 0; }
+            .uw-w-ph {
+              display: flex; align-items: center; gap: 6px; padding: 4px 8px; min-height: 26px;
+              border-radius: 6px; background: var(--uw-ph-bg); border: 1px dashed var(--uw-ph-border);
+            }
+            .uw-w-ph-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink:0; animation: uw-pulse 2s ease-in-out infinite; }
+            .uw-w-ph-lbl { font-size: 10px; color: var(--uw-title); font-style: italic; flex-grow:1; }
+            .uw-w-ph-btn { background:none; border:none; color:var(--uw-title); cursor:pointer; font-size:14px; padding:0 4px; border-radius:4px; transition:all 0.15s; line-height:1; }
+            .uw-w-ph-btn:hover { color:var(--uw-text); background:var(--uw-btn-hover); }
+
+            .uw-w-docked { border-radius: 6px; overflow: hidden; background: var(--uw-hdr-bg); border: 1px solid var(--uw-border); transition: box-shadow 0.2s; }
+            .uw-w-hdr {
+              display: flex; align-items: center; gap: 4px; padding: 3px 8px; min-height: 22px;
+              background: var(--uw-btn-bg); border-bottom: 1px solid var(--uw-border);
+            }
+            .uw-w-lbl { font-size: 9.5px; font-weight: 700; color: var(--uw-title); text-transform: uppercase; letter-spacing: 0.08em; flex-grow:1; pointer-events: none; }
+            .uw-w-pop { background:none; border:none; color:var(--uw-title); cursor:pointer; font-size:12px; padding:2px 5px; border-radius:3px; transition:all 0.15s; line-height:1; }
+            .uw-w-pop:hover { color:var(--uw-text); background:var(--uw-btn-hover); }
+            .uw-w-ctrl { padding: 6px 8px; }
+
+            .uw-w-inline { display: flex; align-items: center; border-radius: 16px; background: var(--uw-btn-bg); border: 1px solid var(--uw-border); overflow: hidden; }
+            .uw-w-inline .uw-inline-hdr { display: flex; align-items: center; padding-left: 8px; flex-shrink: 1; min-width: 40px; }
+            .uw-w-inline .uw-w-ctrl { flex-grow: 1; padding: 2px 8px 2px 0; display: flex; justify-content: flex-end; }
+            .uw-inline-grip { color: var(--uw-title); cursor: grab; padding: 0 4px; font-size: 14px; user-select: none; }
+            .uw-inline-lbl { font-size: 10px; font-weight: 600; color: var(--uw-title); text-transform: uppercase; letter-spacing: 0.05em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 6px; pointer-events: none; }
+
+            .uw-float {
+              position: fixed; min-width: 140px;
+              background: var(--uw-float-bg); 
+              border: 1px solid var(--uw-border); border-radius: 10px;
+              box-shadow: 0 24px 64px rgba(0,0,0,0.85), 0 4px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+              opacity: 0; transform: scale(0.85) translateY(-8px);
+              transition: opacity 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+              overflow: hidden;
+            }
+            .uw-float.uw-float-vis { opacity: 1; transform: scale(1) translateY(0); }
+
+            .uw-float-inline { 
+              display: flex; align-items: center; border-radius: 20px; 
+              background: var(--uw-float-bg); min-width: 160px; height: 40px; padding: 0;
+            }
+            .uw-float-inline .uw-inline-hdr { display: flex; align-items: center; padding-left: 10px; flex-shrink: 1; min-width: 60px; border: none; cursor: grab; height: 100%; }
+            .uw-float-inline .uw-float-ctrl { flex-grow: 1; padding: 0 12px 0 0; display: flex; justify-content: flex-end; }
+            .uw-float-inline .uw-float-dock { background: none; border: none; color: var(--uw-title); cursor: pointer; font-size: 14px; margin-left: auto; padding: 4px; transition: color 0.15s; }
+            .uw-float-inline .uw-float-dock:hover { color: var(--uw-text); }
+
+            .uw-float-bar {
+              display: flex; align-items: center; gap: 6px; padding: 4px 8px;
+              background: var(--uw-hdr-bg); border-bottom: 1px solid var(--uw-border);
+              cursor: grab; user-select: none; min-height: 24px;
+            }
+            .uw-float-bar:active, .uw-inline-hdr:active { cursor: grabbing; }
+            .uw-float-lbl { flex-grow:1; font-size: 10px; font-weight: 700; color: var(--uw-title); text-transform: uppercase; letter-spacing: 0.08em; pointer-events: none; }
+            .uw-float-ctrl { padding: 8px; }
+
+            .uw-fres { position:absolute; top:8px; bottom:8px; width:6px; cursor:ew-resize; opacity:0; transition:opacity 0.2s; border-radius:3px; background:rgba(255,255,255,0.15); }
+            .uw-float:hover .uw-fres { opacity: 1; }
+            .uw-fres-l { left: -2px; }
+            .uw-fres-r { right: -2px; }
+
+            .uw-flash-fx { animation: uw-flash-anim 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+            @keyframes uw-flash-anim { 0% { box-shadow: 0 0 0 2px rgba(100,255,150,0.8), inset 0 0 20px rgba(100,255,150,0.4); } 100% { box-shadow: 0 0 0 0 rgba(100,255,150,0); inset 0 0 0 rgba(100,255,150,0); } }
+            .uw-wheel-locked { box-shadow: 0 0 0 1px rgba(100, 180, 255, 0.5), 0 0 15px rgba(100, 180, 255, 0.2); border-color: rgba(100, 180, 255, 0.5); }
+
+            .uw-midi-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+            .uw-midi-dot:hover { background: rgba(255,180,0,0.6); border-color: rgba(255,180,0,0.9); box-shadow: 0 0 6px rgba(255,180,0,0.5); }
+            .uw-midi-dot.uw-midi-armed { background: #ff3333; border-color: #ff6666; animation: uw-pulse 0.5s ease-in-out infinite; box-shadow: 0 0 8px rgba(255,50,50,0.6); }
+            .uw-light-mode .uw-midi-dot { background: rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.1); }
+
+            .uw-ctrl-inner { display: flex; align-items: center; justify-content: flex-start; min-height: 26px; width: 100%; }
+
+            .uw-toggle {
+              width: 40px; height: 22px; border-radius: 11px; position: relative; cursor: pointer; flex-shrink:0;
+              background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.05);
+              transition: background 0.25s, box-shadow 0.25s;
+            }
+            .uw-toggle-thumb {
+              position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+              background: #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+              transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); pointer-events:none;
+            }
+            .uw-toggle.uw-on .uw-toggle-thumb { transform: translateX(18px); background: #fff; }
+            .uw-light-mode .uw-toggle { background: rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.05); }
+
+            .uw-sl-wrap { position: relative; width: 100%; height: 32px; display: flex; align-items: center; cursor: ew-resize; padding: 0 8px; box-sizing: border-box; touch-action: none; margin-top: 6px; }
+            .uw-sl-bg { position: absolute; left: 8px; right: 8px; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; }
+            .uw-light-mode .uw-sl-bg { background: rgba(0,0,0,0.1); }
+            .uw-sl-fill { position: absolute; left: 8px; height: 4px; border-radius: 2px; pointer-events: none; transition: background-color 0.2s, box-shadow 0.2s, filter 0.2s; background-color: rgba(255,255,255,0.6); }
+            .uw-sl-thumb { position: absolute; width: 8px; height: 14px; border-radius: 4px; background: #fff; transform: translate(-50%, 0); pointer-events: none; transition: transform 0.2s, opacity 0.2s; opacity: 0.5; }
+            .uw-sl-wrap:hover .uw-sl-fill, .uw-sl-wrap.uw-active .uw-sl-fill { background-color: #fff !important; filter: brightness(1.2); }
+            .uw-sl-wrap:hover .uw-sl-thumb, .uw-sl-wrap.uw-active .uw-sl-thumb { opacity: 1; transform: translate(-50%, 0) scale(1.3); }
+            .uw-sl-txt { position: absolute; width: auto; font-size: 11px; font-weight: 800; pointer-events: none; text-shadow: 0 1px 3px #000, 0 0 4px #000, 0 0 6px rgba(0,0,0,0.8); color: #fff; font-family: monospace; letter-spacing: 0.05em; left: 0; top: -16px; z-index: 2; }
+            .uw-w-inline .uw-sl-wrap { margin-top: 0; }
+            .uw-w-inline .uw-sl-txt { top: -12px; position: absolute; width: auto; right: 8px; left: auto; font-size: 10px; }
+
+            .uw-text-inp, .uw-select {
+              width:100%; background:var(--uw-ctrl-bg); border:1px solid var(--uw-border);
+              border-radius:5px; color:var(--uw-text); padding:6px 10px; font-size:12px;
+              outline:none; transition:border-color 0.2s, box-shadow 0.2s;
+            }
+            .uw-text-inp:focus, .uw-select:focus { border-color:rgba(100,180,255,0.6); box-shadow: 0 0 0 2px rgba(100,180,255,0.15); }
+            .uw-select { cursor: pointer; }
+
+            .uw-btnset { display:flex; gap:2px; flex-wrap:wrap; width:100%; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 6px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.4); }
+            .uw-light-mode .uw-btnset { background: rgba(0,0,0,0.05); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+            .uw-btn-item {
+              flex:1; min-width:32px; padding:4px 8px;
+              background: transparent; border: none;
+              border-radius:4px; color: var(--uw-title);
+              font-size:11px; font-weight: 600; cursor:pointer; transition:all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); white-space:nowrap;
+            }
+            .uw-btn-item:hover { color: var(--uw-text); background: var(--uw-btn-hover); }
+            .uw-light-mode .uw-btn-item:hover { background: rgba(0,0,0,0.05); }
+            .uw-btn-item.uw-active { background: rgba(255,255,255,0.15); color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+            .uw-light-mode .uw-btn-item.uw-active { background: #fff; color: #000; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+            .uw-prompt-inp { width:100%; padding:8px 12px; background:var(--uw-ctrl-bg); color:var(--uw-text); border:1px solid var(--uw-border); border-radius:6px; font-size:14px; outline:none; margin-top:10px; box-sizing:border-box; transition:border-color 0.2s; }
+            .uw-prompt-inp:focus { border-color: #2979ff; box-shadow: 0 0 0 2px rgba(41,121,255,0.2); }
+            .uw-prompt-msg { color: var(--uw-title); font-size: 13px; line-height: 1.4; }
+
+            @keyframes uw-pulse { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.4); } }
+            @media (max-width: 768px) {
+              .uw-dialog { max-width:calc(100vw - 16px)!important; max-height:calc(100vh - 24px)!important; }
+              .uw-header { min-height:44px!important; padding:6px 12px!important; cursor:grab; touch-action:none; }
+              .uw-swipe-hint { display:block; width: 32px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin: 0 auto; }
+              .uw-title { font-size: 13px; }
+              .uw-util-btn, .uw-close-btn { width: 36px!important; height: 36px!important; font-size: 14px!important; background: rgba(255,255,255,0.05); }
+              .uw-btn { padding: 12px 20px; font-size: 14px; min-height: 44px; }
+            }
+          `;
+
+        if (typeof applyCss === 'function') {
+          applyCss(css, 'UIToolsStyles');
+        } else {
+          let style = document.getElementById('UIToolsStyles');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = 'UIToolsStyles';
+            (document.head || document.documentElement).appendChild(style);
           }
-          .uw-btn {
-            padding: 6px 14px; background: var(--uw-btn-bg); color: var(--uw-text); border: 1px solid var(--uw-border);
-            border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s;
-          }
-          .uw-btn:hover { background: var(--uw-btn-hover); color: var(--uw-text); transform: translateY(-1px); }
-          .uw-btn.primary { background: #2962ff; border-color: #2979ff; color: #fff; }
-          .uw-btn.primary:hover { background: #448aff; box-shadow: 0 2px 8px rgba(41,98,255,0.4); }
-
-          .uw-transparent { background:transparent!important; border:none!important; box-shadow:none!important; backdrop-filter:none!important; }
-          .uw-transparent .uw-header { background: rgba(0,0,0,0.3)!important; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 4px; }
-          .uw-transparent .uw-content { background:transparent!important; padding: 0; }
-          .uw-transparent .uw-footer { display:none!important; }
-
-          /* Dialog corner arc handles */
-          .uw-corner {
-            position: absolute;
-            width: 15px;
-            height: 15px;
-            z-index: 20;
-            opacity: 0.9 !important;
-            touch-action: none;
-            user-select: none;
-          }
-          .uw-corner svg {
-            display: block !important;
-          }
-          .uw-corner:hover {
-            opacity: 1 !important;
-            transform: scale(1.12);
-          }
-
-          /* Bottom and left corners can have general hit padding */
-          .uw-c-br::after, .uw-c-bl::after, .uw-c-tl::after {
-            content: '';
-            position: absolute;
-            top: -8px;
-            bottom: -8px;
-            left: -8px;
-            right: -8px;
-            touch-action: none;
-            cursor: inherit;
-          }
-          /* Top-right corner hit target expands strictly outward to prevent covering close button */
-          .uw-c-tr::after {
-            content: '';
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            width: 15px;
-            height: 15px;
-            touch-action: none;
-            cursor: inherit;
-          }
-
-          .uw-w-wrap { margin: 2px 0; }
-          .uw-w-ph {
-            display: flex; align-items: center; gap: 6px; padding: 4px 8px; min-height: 26px;
-            border-radius: 6px; background: var(--uw-ph-bg); border: 1px dashed var(--uw-ph-border);
-          }
-          .uw-w-ph-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink:0; animation: uw-pulse 2s ease-in-out infinite; }
-          .uw-w-ph-lbl { font-size: 10px; color: var(--uw-title); font-style: italic; flex-grow:1; }
-          .uw-w-ph-btn { background:none; border:none; color:var(--uw-title); cursor:pointer; font-size:14px; padding:0 4px; border-radius:4px; transition:all 0.15s; line-height:1; }
-          .uw-w-ph-btn:hover { color:var(--uw-text); background:var(--uw-btn-hover); }
-
-          .uw-w-docked { border-radius: 6px; overflow: hidden; background: var(--uw-hdr-bg); border: 1px solid var(--uw-border); transition: box-shadow 0.2s; }
-          .uw-w-hdr {
-            display: flex; align-items: center; gap: 4px; padding: 3px 8px; min-height: 22px;
-            background: var(--uw-btn-bg); border-bottom: 1px solid var(--uw-border);
-          }
-          .uw-w-lbl { font-size: 9.5px; font-weight: 700; color: var(--uw-title); text-transform: uppercase; letter-spacing: 0.08em; flex-grow:1; pointer-events: none; }
-          .uw-w-pop { background:none; border:none; color:var(--uw-title); cursor:pointer; font-size:12px; padding:2px 5px; border-radius:3px; transition:all 0.15s; line-height:1; }
-          .uw-w-pop:hover { color:var(--uw-text); background:var(--uw-btn-hover); }
-          .uw-w-ctrl { padding: 6px 8px; }
-
-          .uw-w-inline { display: flex; align-items: center; border-radius: 16px; background: var(--uw-btn-bg); border: 1px solid var(--uw-border); overflow: hidden; }
-          .uw-w-inline .uw-inline-hdr { display: flex; align-items: center; padding-left: 8px; flex-shrink: 1; min-width: 40px; }
-          .uw-w-inline .uw-w-ctrl { flex-grow: 1; padding: 2px 8px 2px 0; display: flex; justify-content: flex-end; }
-          .uw-inline-grip { color: var(--uw-title); cursor: grab; padding: 0 4px; font-size: 14px; user-select: none; }
-          .uw-inline-lbl { font-size: 10px; font-weight: 600; color: var(--uw-title); text-transform: uppercase; letter-spacing: 0.05em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 6px; pointer-events: none; }
-
-          .uw-float {
-            position: fixed; min-width: 140px;
-            background: var(--uw-float-bg); 
-            border: 1px solid var(--uw-border); border-radius: 10px;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.85), 0 4px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
-            opacity: 0; transform: scale(0.85) translateY(-8px);
-            transition: opacity 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
-            overflow: hidden;
-          }
-          .uw-float.uw-float-vis { opacity: 1; transform: scale(1) translateY(0); }
-
-          .uw-float-inline { 
-            display: flex; align-items: center; border-radius: 20px; 
-            background: var(--uw-float-bg); min-width: 160px; height: 40px; padding: 0;
-          }
-          .uw-float-inline .uw-inline-hdr { display: flex; align-items: center; padding-left: 10px; flex-shrink: 1; min-width: 60px; border: none; cursor: grab; height: 100%; }
-          .uw-float-inline .uw-float-ctrl { flex-grow: 1; padding: 0 12px 0 0; display: flex; justify-content: flex-end; }
-          .uw-float-inline .uw-float-dock { background: none; border: none; color: var(--uw-title); cursor: pointer; font-size: 14px; margin-left: auto; padding: 4px; transition: color 0.15s; }
-          .uw-float-inline .uw-float-dock:hover { color: var(--uw-text); }
-
-          .uw-float-bar {
-            display: flex; align-items: center; gap: 6px; padding: 4px 8px;
-            background: var(--uw-hdr-bg); border-bottom: 1px solid var(--uw-border);
-            cursor: grab; user-select: none; min-height: 24px;
-          }
-          .uw-float-bar:active, .uw-inline-hdr:active { cursor: grabbing; }
-          .uw-float-lbl { flex-grow:1; font-size: 10px; font-weight: 700; color: var(--uw-title); text-transform: uppercase; letter-spacing: 0.08em; pointer-events: none; }
-          .uw-float-ctrl { padding: 8px; }
-
-          .uw-fres { position:absolute; top:8px; bottom:8px; width:6px; cursor:ew-resize; opacity:0; transition:opacity 0.2s; border-radius:3px; background:rgba(255,255,255,0.15); }
-          .uw-float:hover .uw-fres { opacity: 1; }
-          .uw-fres-l { left: -2px; }
-          .uw-fres-r { right: -2px; }
-
-          .uw-flash-fx { animation: uw-flash-anim 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
-          @keyframes uw-flash-anim { 0% { box-shadow: 0 0 0 2px rgba(100,255,150,0.8), inset 0 0 20px rgba(100,255,150,0.4); } 100% { box-shadow: 0 0 0 0 rgba(100,255,150,0); inset 0 0 0 rgba(100,255,150,0); } }
-          .uw-wheel-locked { box-shadow: 0 0 0 1px rgba(100, 180, 255, 0.5), 0 0 15px rgba(100, 180, 255, 0.2); border-color: rgba(100, 180, 255, 0.5); }
-
-          .uw-midi-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
-          .uw-midi-dot:hover { background: rgba(255,180,0,0.6); border-color: rgba(255,180,0,0.9); box-shadow: 0 0 6px rgba(255,180,0,0.5); }
-          .uw-midi-dot.uw-midi-armed { background: #ff3333; border-color: #ff6666; animation: uw-pulse 0.5s ease-in-out infinite; box-shadow: 0 0 8px rgba(255,50,50,0.6); }
-          .uw-light-mode .uw-midi-dot { background: rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.1); }
-
-          .uw-ctrl-inner { display: flex; align-items: center; justify-content: flex-start; min-height: 26px; width: 100%; }
-
-          .uw-toggle {
-            width: 40px; height: 22px; border-radius: 11px; position: relative; cursor: pointer; flex-shrink:0;
-            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.05);
-            transition: background 0.25s, box-shadow 0.25s;
-          }
-          .uw-toggle-thumb {
-            position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
-            background: #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.6);
-            transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); pointer-events:none;
-          }
-          .uw-toggle.uw-on .uw-toggle-thumb { transform: translateX(18px); background: #fff; }
-          .uw-light-mode .uw-toggle { background: rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.05); }
-
-          .uw-sl-wrap { position: relative; width: 100%; height: 32px; display: flex; align-items: center; cursor: ew-resize; padding: 0 8px; box-sizing: border-box; touch-action: none; margin-top: 6px; }
-          .uw-sl-bg { position: absolute; left: 8px; right: 8px; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; }
-          .uw-light-mode .uw-sl-bg { background: rgba(0,0,0,0.1); }
-          .uw-sl-fill { position: absolute; left: 8px; height: 4px; border-radius: 2px; pointer-events: none; transition: background-color 0.2s, box-shadow 0.2s, filter 0.2s; background-color: rgba(255,255,255,0.6); }
-          .uw-sl-thumb { position: absolute; width: 8px; height: 14px; border-radius: 4px; background: #fff; transform: translate(-50%, 0); pointer-events: none; transition: transform 0.2s, opacity 0.2s; opacity: 0.5; }
-          .uw-sl-wrap:hover .uw-sl-fill, .uw-sl-wrap.uw-active .uw-sl-fill { background-color: #fff !important; filter: brightness(1.2); }
-          .uw-sl-wrap:hover .uw-sl-thumb, .uw-sl-wrap.uw-active .uw-sl-thumb { opacity: 1; transform: translate(-50%, 0) scale(1.3); }
-          .uw-sl-txt { position: absolute; width: auto; font-size: 11px; font-weight: 800; pointer-events: none; text-shadow: 0 1px 3px #000, 0 0 4px #000, 0 0 6px rgba(0,0,0,0.8); color: #fff; font-family: monospace; letter-spacing: 0.05em; left: 0; top: -16px; z-index: 2; }
-          .uw-w-inline .uw-sl-wrap { margin-top: 0; }
-          .uw-w-inline .uw-sl-txt { top: -12px; position: absolute; width: auto; right: 8px; left: auto; font-size: 10px; }
-
-          .uw-text-inp, .uw-select {
-            width:100%; background:var(--uw-ctrl-bg); border:1px solid var(--uw-border);
-            border-radius:5px; color:var(--uw-text); padding:6px 10px; font-size:12px;
-            outline:none; transition:border-color 0.2s, box-shadow 0.2s;
-          }
-          .uw-text-inp:focus, .uw-select:focus { border-color:rgba(100,180,255,0.6); box-shadow: 0 0 0 2px rgba(100,180,255,0.15); }
-          .uw-select { cursor: pointer; }
-
-          .uw-btnset { display:flex; gap:2px; flex-wrap:wrap; width:100%; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 6px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.4); }
-          .uw-light-mode .uw-btnset { background: rgba(0,0,0,0.05); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
-          .uw-btn-item {
-            flex:1; min-width:32px; padding:4px 8px;
-            background: transparent; border: none;
-            border-radius:4px; color: var(--uw-title);
-            font-size:11px; font-weight: 600; cursor:pointer; transition:all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); white-space:nowrap;
-          }
-          .uw-btn-item:hover { color: var(--uw-text); background: var(--uw-btn-hover); }
-          .uw-light-mode .uw-btn-item:hover { background: rgba(0,0,0,0.05); }
-          .uw-btn-item.uw-active { background: rgba(255,255,255,0.15); color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
-          .uw-light-mode .uw-btn-item.uw-active { background: #fff; color: #000; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
-
-          .uw-prompt-inp { width:100%; padding:8px 12px; background:var(--uw-ctrl-bg); color:var(--uw-text); border:1px solid var(--uw-border); border-radius:6px; font-size:14px; outline:none; margin-top:10px; box-sizing:border-box; transition:border-color 0.2s; }
-          .uw-prompt-inp:focus { border-color: #2979ff; box-shadow: 0 0 0 2px rgba(41,121,255,0.2); }
-          .uw-prompt-msg { color: var(--uw-title); font-size: 13px; line-height: 1.4; }
-
-          @keyframes uw-pulse { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.4); } }
-          @media (max-width: 768px) {
-            .uw-dialog { max-width:calc(100vw - 16px)!important; max-height:calc(100vh - 24px)!important; }
-            .uw-header { min-height:44px!important; padding:6px 12px!important; cursor:grab; touch-action:none; }
-            .uw-swipe-hint { display:block; width: 32px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin: 0 auto; }
-            .uw-title { font-size: 13px; }
-            .uw-util-btn, .uw-close-btn { width: 36px!important; height: 36px!important; font-size: 14px!important; background: rgba(255,255,255,0.05); }
-            .uw-btn { padding: 12px 20px; font-size: 14px; min-height: 44px; }
-          }
-        `;
-
-      if (typeof applyCss === 'function') {
-        applyCss(css, 'UIToolsStyles');
-      } else {
-        let style = document.getElementById('UIToolsStyles');
-        if (!style) {
-          style = document.createElement('style');
-          style.id = 'UIToolsStyles';
-          (document.head || document.documentElement).appendChild(style);
+          style.textContent = css;
         }
-        style.textContent = css;
       }
-    }
   _toggleMidi() {
     this._midiArmed = !this._midiArmed;
     if (this._midiDotEl)
@@ -2709,6 +2714,12 @@ class UITools {
 
       UITools._getState().all = UITools._getState().all.filter(w => w !== this);
       UITools._getState().activeCount = Math.max(0, UITools._getState().activeCount - 1);
+    }
+
+  setContentTransparent(isTransparent = true) {
+      if (this.element) {
+        this.element.classList.toggle('uw-content-transparent', isTransparent);
+      }
     }
 }
 globalThis.UITools = UITools;
