@@ -25,6 +25,9 @@ class DictationWidget {
   pendingPunct = [];
   subscribers = new Set();
 
+  // Persistent Custom Replacement Dictionary
+  customReplacements = {};
+
   punctMap = {
     period: '.',
     comma: ',',
@@ -35,6 +38,10 @@ class DictationWidget {
     'new line': '\n\n',
     newline: '\n\n',
     'new paragraph': '\n\n',
+    colon: ':',
+    semicolon: ';',
+    dash: ' — ',
+    hyphen: '-'
   };
 
   init() {
@@ -49,10 +56,42 @@ class DictationWidget {
     this.openQuoteSpans = [];
     this.subscribers = new Set();
     this.staleTimestamp = 0;
+    this.loadReplacements();
     this.applyStyles();
     this.setupUI();
     this.setupRecognition();
     this.setupEventListeners();
+  }
+
+  loadReplacements() {
+    try {
+      const raw = localStorage.getItem('dictation_custom_replacements');
+      this.customReplacements = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      this.customReplacements = {};
+    }
+  }
+
+  saveReplacements() {
+    try {
+      localStorage.setItem('dictation_custom_replacements', JSON.stringify(this.customReplacements));
+    } catch (e) {}
+  }
+
+  addReplacementRule(spokenWord, replacementWord) {
+    if (!spokenWord || !replacementWord) return;
+    const cleanFrom = spokenWord.trim().toLowerCase();
+    const cleanTo = replacementWord.trim();
+    this.customReplacements[cleanFrom] = cleanTo;
+    this.saveReplacements();
+    this.updateStatus(`✓ Learned: "${cleanFrom}" ➔ "${cleanTo}"`);
+  }
+
+  removeReplacementRule(spokenWord) {
+    const cleanFrom = (spokenWord || '').trim().toLowerCase();
+    delete this.customReplacements[cleanFrom];
+    this.saveReplacements();
+    this.updateStatus(`Removed replacement for "${cleanFrom}"`);
   }
 
   subscribe(callback) {
@@ -113,16 +152,7 @@ class DictationWidget {
           display: 'inline-flex',
           alignItems: 'center',
           gap: '6px'
-        },
-        onmouseenter: (e) => {
-          if (!this.isListening) {
-            e.currentTarget.style.backgroundColor = '#264a2e';
-            e.currentTarget.style.color = '#fff';
-          }
-        },
-        onmouseleave: () => {
-          this.updateButtonStates();
-        },
+        }
       },
       'Start Listening'
     );
@@ -141,17 +171,8 @@ class DictationWidget {
           cursor: 'pointer',
           fontWeight: '600',
           fontSize: this.compact ? '11px' : '12px',
-          fontFamily: 'monospace',
-          transition: 'all 0.15s ease',
-        },
-        onmouseenter: (e) => {
-          e.currentTarget.style.backgroundColor = '#4a2c2c';
-          e.currentTarget.style.color = '#fff';
-        },
-        onmouseleave: (e) => {
-          e.currentTarget.style.backgroundColor = '#3a1c1c';
-          e.currentTarget.style.color = '#bd8a8a';
-        },
+          fontFamily: 'monospace'
+        }
       },
       'Clear'
     );
@@ -170,6 +191,17 @@ class DictationWidget {
         textOverflow: 'ellipsis'
       },
     });
+
+    this.replaceBtn = makeElement(
+      'button',
+      {
+        className: 'dr-nav-btn',
+        title: 'Manage Custom Spoken Word Replacements',
+        style: { padding: this.compact ? '4px 8px' : '5px 10px', fontSize: this.compact ? '11px' : '12px', color: '#c084fc', borderColor: 'rgba(192, 132, 252, 0.4)' },
+        onclick: () => this.openReplacementsDialog()
+      },
+      'Vocabulary'
+    );
 
     this.copyButton = makeElement(
       'button',
@@ -195,6 +227,7 @@ class DictationWidget {
       this.clearBtn,
       this.toggleListenBtn,
       this.statusDiv,
+      this.replaceBtn,
       this.copyButton,
       this.toggleEditBtn
     );
@@ -351,33 +384,16 @@ class DictationWidget {
         endX = popupRect.left + popupRect.width / 2;
         endY = popupRect.top;
         break;
-      case 'left':
-        endX = popupRect.left;
-        endY = popupRect.top + popupRect.height / 2;
-        break;
-      case 'right':
-        endX = popupRect.right;
-        endY = popupRect.top + popupRect.height / 2;
-        break;
       default:
         endX = popupRect.left + popupRect.width / 2;
         endY = popupRect.top;
     }
 
     const tension = 30;
-    let cp1x, cp1y, cp2x, cp2y;
-
-    if (anchorSide === 'top') {
-      cp1x = startX;
-      cp1y = startY + tension;
-      cp2x = endX;
-      cp2y = endY - tension;
-    } else {
-      cp1x = startX;
-      cp1y = startY + 20;
-      cp2x = endX;
-      cp2y = endY - 20;
-    }
+    const cp1x = startX;
+    const cp1y = startY + tension;
+    const cp2x = endX;
+    const cp2y = endY - tension;
 
     this.popupSvgPath.setAttribute(
       'd',
@@ -417,7 +433,6 @@ class DictationWidget {
     this.recognition.onresult = (event) => this.handleRecognitionResult(event);
 
     this.recognition.onerror = (event) => {
-      // Ignore normal silence timeouts so speech recognition doesn't stop when pausing
       if (event.error === 'no-speech' || event.error === 'aborted') {
         return;
       }
@@ -442,7 +457,6 @@ class DictationWidget {
       }
     };
 
-    // Native speech activity cues that do not interfere with microphone capture
     this.recognition.onspeechstart = () => {
       if (this.isListening) {
         this.statusDiv.textContent = '🎙️ Transcribing voice...';
@@ -472,7 +486,8 @@ class DictationWidget {
   }
 
   startListening() {
-    if (!this.recognition) {
+    const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechAPI) {
       alert('Speech Recognition API is not supported in this browser. Please use Chrome, Edge, or Safari.');
       return;
     }
@@ -526,7 +541,6 @@ class DictationWidget {
       this.lastTokens = tokens;
       const display = this.renderTokens(tokens);
       this.updatePopup(display);
-
       this.handleCaretActivity();
     }
 
@@ -558,28 +572,54 @@ class DictationWidget {
     this.lastTokens = [];
   }
 
+  /**
+   * Processes transcript incorporating:
+   * 1. Literal escape protocol ("literal comma" -> "comma")
+   * 2. Punctuation mapping
+   * 3. Learned custom replacement dictionary
+   */
   processTranscript(rawText) {
     const tokens = rawText.trim().split(/\s+/);
-    if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === ''))
-      return '';
+    if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === '')) return '';
 
     let out = '';
     let shouldCapitalizeNextWord = false;
 
     for (let i = 0; i < tokens.length; i++) {
-      const t1 = tokens[i].toLowerCase();
-      const t2 = (tokens[i + 1] || '').toLowerCase();
-      const twoWordKey = `${t1} ${t2}`;
+      const rawCurrent = tokens[i];
+      const lower = rawCurrent.toLowerCase();
+      const nextLower = (tokens[i + 1] || '').toLowerCase();
 
+      // --- PROTOCOL 1: "LITERAL" ESCAPE PROTOCOL ---
+      // If the user says "literal comma", output "comma" as a literal word!
+      if (lower === 'literal' && i + 1 < tokens.length) {
+        const escapedWord = tokens[i + 1];
+        out += escapedWord + ' ';
+        i++; // skip escaped word
+        continue;
+      }
+
+      // --- PROTOCOL 2: CUSTOM REPLACEMENT DICTIONARY ---
+      // Check multi-word replacement first
+      const twoWordKey = `${lower} ${nextLower}`;
+      if (this.customReplacements[twoWordKey]) {
+        out += this.customReplacements[twoWordKey] + ' ';
+        i++;
+        continue;
+      } else if (this.customReplacements[lower]) {
+        out += this.customReplacements[lower] + ' ';
+        continue;
+      }
+
+      // --- PROTOCOL 3: PUNCTUATION PARSER ---
       let punct = undefined;
       let consumed = 0;
 
-      const own = Object.prototype.hasOwnProperty;
-      if (own.call(this.punctMap, twoWordKey)) {
+      if (Object.prototype.hasOwnProperty.call(this.punctMap, twoWordKey)) {
         punct = this.punctMap[twoWordKey];
         consumed = 2;
-      } else if (own.call(this.punctMap, t1)) {
-        punct = this.punctMap[t1];
+      } else if (Object.prototype.hasOwnProperty.call(this.punctMap, lower)) {
+        punct = this.punctMap[lower];
         consumed = 1;
       }
 
@@ -592,7 +632,7 @@ class DictationWidget {
 
         i += consumed - 1;
       } else {
-        let word = tokens[i];
+        let word = rawCurrent;
         if (word.toLowerCase() === 'i') word = 'I';
 
         if (shouldCapitalizeNextWord) {
@@ -634,20 +674,6 @@ class DictationWidget {
     const charBefore = content.charAt(start - 1);
     if (!/^[.,;:!?\n]/.test(frag) && charBefore && !/\s/.test(charBefore)) {
       frag = ' ' + frag;
-    }
-
-    let end = start;
-    if (this.lastRange) {
-      const whole2 = document.createRange();
-      whole2.selectNodeContents(this.editorContent);
-      const afterR = document.createRange();
-      afterR.setStart(whole2.startContainer, whole2.startOffset);
-      afterR.setEnd(this.lastRange.endContainer, this.lastRange.endOffset);
-      end = afterR.toString().length;
-    }
-    const charAfter = content.charAt(end);
-    if (!/[.,;:!?\n]$/.test(frag) && charAfter && !/\s/.test(charAfter)) {
-      frag = frag + ' ';
     }
 
     this.editorContent.focus();
@@ -723,33 +749,6 @@ class DictationWidget {
             right: rawRect.right || rawRect.left + (rawRect.width || 8),
             bottom: rawRect.bottom || rawRect.top + (rawRect.height || 18),
           };
-        } else {
-          try {
-            const marker = document.createElement('span');
-            marker.textContent = '\u200B';
-            marker.style.display = 'inline-block';
-            marker.style.width = '0px';
-            marker.style.height = '1em';
-            marker.style.verticalAlign = 'baseline';
-            marker.style.pointerEvents = 'none';
-
-            const tempRange = posRange.cloneRange();
-            tempRange.insertNode(marker);
-
-            const mr = marker.getBoundingClientRect();
-            finalCaretRect = {
-              left: mr.left,
-              top: mr.top,
-              width: mr.width || 8,
-              height: mr.height || 18,
-              right: mr.right || mr.left + (mr.width || 8),
-              bottom: mr.bottom || mr.top + (mr.height || 18),
-            };
-
-            marker.remove();
-            sel.removeAllRanges();
-            sel.addRange(range);
-          } catch (e) {}
         }
       }
     }
@@ -816,9 +815,7 @@ class DictationWidget {
 
   applyStyles() {
     const css = `
-        .superdictate-widget-container {
-          box-sizing: border-box;
-        }
+        .superdictate-widget-container { box-sizing: border-box; }
         .dictation-editor-content:empty:before {
           content: attr(data-placeholder);
           color: #64748b;
@@ -826,9 +823,7 @@ class DictationWidget {
           pointer-events: none;
         }
         .tentative-popup {
-          position: fixed; 
-          top: 0; 
-          left: 0;
+          position: fixed; top: 0; left: 0;
           background-color: #000000 !important;
           color: #ffffff !important;
           border: 3px solid #00ff66 !important; 
@@ -875,9 +870,7 @@ class DictationWidget {
   }
 
   toggleEditMode() {
-    if (this.isListening) {
-      this.stopListening();
-    }
+    if (this.isListening) this.stopListening();
 
     this.isEditing = !this.isEditing;
     if (this.isEditing) {
@@ -965,9 +958,6 @@ class DictationWidget {
 
     if (this.clearBtn) {
       this.clearBtn.style.display = hasText ? 'inline-block' : 'none';
-      this.clearBtn.style.backgroundColor = '#3a1c1c';
-      this.clearBtn.style.color = '#bd8a8a';
-      this.clearBtn.style.borderColor = '#5e2a2a';
     }
 
     if (this.isListening) {
@@ -984,11 +974,10 @@ class DictationWidget {
 
     this.toggleListenBtn.disabled = this.isEditing;
     this.toggleEditBtn.textContent = this.isEditing ? 'Finish Editing' : 'Quick Edit';
-    this.toggleEditBtn.disabled = false;
 
     let status = '🔇 Idle';
     if (this.isEditing) status = '✏️ Editing';
-    else if (this.isListening) status = '🎙️ Listening (Speak now)...';
+    else if (this.isListening) status = '🔴 Listening... (speak freely)';
     const modText = this.modifierHeld ? ' (Raw Mode)' : '';
     this.statusDiv.textContent = `${status}${modText}`;
   }
@@ -1073,60 +1062,6 @@ class DictationWidget {
     });
   }
 
-  handleSmartPunctuation(key, spaceSpan) {
-    const prevWordSpan = spaceSpan.previousElementSibling;
-    const nextWordSpan = spaceSpan.nextElementSibling;
-
-    if (prevWordSpan && prevWordSpan.classList.contains('quick-edit-span-word')) {
-      let prevText = prevWordSpan.textContent;
-      if (/[.,?!;:]$/.test(prevText)) {
-        prevText = prevText.slice(0, -1);
-      }
-      prevWordSpan.textContent = prevText + key;
-    }
-
-    if (nextWordSpan && nextWordSpan.classList.contains('quick-edit-span-word')) {
-      if (key === '.') {
-        let nextText = nextWordSpan.textContent;
-        if (nextText.length > 0) {
-          nextWordSpan.textContent = nextText.charAt(0).toUpperCase() + nextText.slice(1);
-        }
-      }
-    }
-  }
-
-  handleSmartQuote(spaceSpan) {
-    if (this.openQuoteSpans.length > 0) {
-      const prevWordSpan = spaceSpan.previousElementSibling;
-      if (prevWordSpan && prevWordSpan.classList.contains('quick-edit-span-word')) {
-        prevWordSpan.textContent = prevWordSpan.textContent + '”';
-        this.openQuoteSpans = [];
-      }
-    } else {
-      const nextWordSpan = spaceSpan.nextElementSibling;
-      if (nextWordSpan && nextWordSpan.classList.contains('quick-edit-span-word')) {
-        nextWordSpan.textContent = '“' + nextWordSpan.textContent;
-        this.openQuoteSpans.push(nextWordSpan);
-      }
-    }
-  }
-
-  handleShiftToggleCase(targetSpan, isSingleWord = false) {
-    let wordToToggle = isSingleWord ? targetSpan : targetSpan.nextElementSibling;
-
-    if (wordToToggle && wordToToggle.classList.contains('quick-edit-span-word')) {
-      let text = wordToToggle.textContent;
-      if (text.length > 0) {
-        const firstChar = text.charAt(0);
-        if (firstChar === firstChar.toUpperCase()) {
-          wordToToggle.textContent = firstChar.toLowerCase() + text.slice(1);
-        } else {
-          wordToToggle.textContent = firstChar.toUpperCase() + text.slice(1);
-        }
-      }
-    }
-  }
-
   findTargetSpace(target, clientX) {
     if (target.classList.contains('quick-edit-span-space')) {
       return target;
@@ -1143,13 +1078,6 @@ class DictationWidget {
       }
     }
     return null;
-  }
-
-  handleClearPunctuation(spaceSpan) {
-    const prevWordSpan = spaceSpan.previousElementSibling;
-    if (prevWordSpan && prevWordSpan.classList.contains('quick-edit-span-word')) {
-      prevWordSpan.textContent = prevWordSpan.textContent.replace(/[.,?!;:]$/, '');
-    }
   }
 
   getElement() {
@@ -1238,25 +1166,6 @@ class DictationWidget {
         this.modifierHeld = true;
         this.updateButtonStates();
       }
-
-      if (this.isEditing && document.activeElement === this.editorContent) {
-        const spaceSpan = this.editorContent.querySelector('.highlight-space');
-        if (spaceSpan) {
-          if (['.', ',', ';', ':'].includes(e.key)) {
-            e.preventDefault();
-            this.handleSmartPunctuation(e.key, spaceSpan);
-          } else if (e.key === '"') {
-            e.preventDefault();
-            this.handleSmartQuote(spaceSpan);
-          } else if (e.key === 'Shift') {
-            e.preventDefault();
-            this.handleShiftToggleCase(spaceSpan);
-          } else if (e.key === ' ') {
-            e.preventDefault();
-            this.handleClearPunctuation(spaceSpan);
-          }
-        }
-      }
     });
 
     window.addEventListener('keyup', (e) => {
@@ -1269,15 +1178,114 @@ class DictationWidget {
 
   parseCommandFromTranscript(transcript) {
     const clean = transcript.trim();
-    let match = clean.match(/^(.*)(?:^|\s)copy to clipboard[\W]*$/i);
-    if (match) {
+    if (/^(.*)(?:^|\s)copy to clipboard[\W]*$/i.test(clean)) {
+      const match = clean.match(/^(.*)(?:^|\s)copy to clipboard[\W]*$/i);
       return { text: match[1], action: () => this.copyContent() };
     }
-    match = clean.match(/^(.*)(?:^|\s)quick edit[\W]*$/i);
-    if (match) {
+    if (/^(.*)(?:^|\s)clear notes?[\W]*$/i.test(clean)) {
+      return { text: '', action: () => this.clearContent() };
+    }
+    if (/^(.*)(?:^|\s)quick edit[\W]*$/i.test(clean)) {
+      const match = clean.match(/^(.*)(?:^|\s)quick edit[\W]*$/i);
       return { text: match[1], action: () => this.toggleEditMode() };
     }
     return { text: clean, action: null };
+  }
+
+  openReplacementsDialog() {
+    const wrap = makeElement('div', {
+      style: {
+        display: 'flex', flexDirection: 'column', gap: '12px',
+        color: '#f8fafc', fontFamily: 'monospace', fontSize: '11.5px'
+      }
+    });
+
+    const desc = makeElement('div', {
+      style: { color: '#94a3b8', lineHeight: '1.45' }
+    }, 'Add custom phonetic replacements for words or names speech recognition gets wrong. You can always revert any replacement in-situ.');
+    wrap.appendChild(desc);
+
+    const inputRow = makeElement('div', {
+      style: { display: 'flex', gap: '6px', alignItems: 'center' }
+    });
+
+    const fromInput = makeElement('input', {
+      type: 'text', placeholder: 'Spoken / Misheard...',
+      style: { flex: 1, padding: '6px 8px', background: '#070a13', color: '#f8fafc', border: '1px solid #232d3f', borderRadius: '4px' }
+    });
+    const toInput = makeElement('input', {
+      type: 'text', placeholder: 'Replace with...',
+      style: { flex: 1, padding: '6px 8px', background: '#070a13', color: '#00f2fe', border: '1px solid #232d3f', borderRadius: '4px' }
+    });
+    const addBtn = makeElement('button', {
+      className: 'dr-nav-btn primary',
+      style: { padding: '6px 10px', fontSize: '11px', fontWeight: 'bold' },
+      onclick: () => {
+        const from = fromInput.value.trim();
+        const to = toInput.value.trim();
+        if (from && to) {
+          this.addReplacementRule(from, to);
+          fromInput.value = '';
+          toInput.value = '';
+          renderList();
+        }
+      }
+    }, '+ Add');
+
+    inputRow.append(fromInput, toInput, addBtn);
+    wrap.appendChild(inputRow);
+
+    const listContainer = makeElement('div', {
+      style: {
+        maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column',
+        gap: '6px', borderTop: '1px solid #1e293b', paddingTop: '8px'
+      }
+    });
+    wrap.appendChild(listContainer);
+
+    const renderList = () => {
+      listContainer.innerHTML = '';
+      const keys = Object.keys(this.customReplacements);
+      if (keys.length === 0) {
+        listContainer.appendChild(makeElement('div', {
+          style: { padding: '12px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }
+        }, 'No custom replacements yet.'));
+        return;
+      }
+      keys.forEach(k => {
+        const row = makeElement('div', {
+          style: {
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            background: 'rgba(255,255,255,0.03)', padding: '5px 8px', borderRadius: '4px', border: '1px solid #1e293b'
+          }
+        }, [
+          makeElement('div', {}, [
+            makeElement('span', { style: { color: '#ef4444' } }, `"${k}"`),
+            makeElement('span', { style: { color: '#64748b', margin: '0 6px' } }, '➔'),
+            makeElement('strong', { style: { color: '#00f2fe' } }, `"${this.customReplacements[k]}"`)
+          ]),
+          makeElement('button', {
+            style: { background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px' },
+            onclick: () => {
+              this.removeReplacementRule(k);
+              renderList();
+            }
+          }, '✕')
+        ]);
+        listContainer.appendChild(row);
+      });
+    };
+    renderList();
+
+    if (typeof UITools !== 'undefined' && typeof UITools.makeDialog === 'function') {
+      UITools.makeDialog({
+        title: '🎙️ Custom Spoken Vocabulary & Replacements',
+        size: [480, 420],
+        position: [Math.max(20, (window.innerWidth - 480) / 2), 80],
+        contentElement: wrap,
+        appendTo: document.body
+      });
+    }
   }
 }
 
