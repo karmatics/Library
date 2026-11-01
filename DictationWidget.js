@@ -25,7 +25,6 @@ class DictationWidget {
   pendingPunct = [];
   subscribers = new Set();
 
-  // Persistent Custom Replacement Dictionary
   customReplacements = {};
 
   punctMap = {
@@ -123,12 +122,12 @@ class DictationWidget {
     const controlsContainer = makeElement('div', {
       className: 'dictation-controls-bar',
       style: {
-        padding: this.compact ? '6px 10px' : '8px 12px',
+        padding: this.compact ? '5px 8px' : '6px 10px',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        backgroundColor: '#161e2b',
-        borderBottom: '1px solid #232d3f',
+        gap: '6px',
+        backgroundColor: '#11151c',
+        borderBottom: '1px solid #21262d',
         flexWrap: 'wrap'
       },
     });
@@ -139,49 +138,53 @@ class DictationWidget {
         className: 'dictation-btn-listen',
         onclick: () => this.toggleListening(),
         style: {
-          padding: this.compact ? '5px 12px' : '6px 14px',
+          padding: this.compact ? '4px 10px' : '5px 12px',
           fontWeight: '700',
           borderRadius: '6px',
           cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          backgroundColor: '#1b3320',
-          border: '1px solid #2e4a32',
-          color: '#8abf8e',
+          transition: 'all 0.15s ease',
+          backgroundColor: '#0d2818',
+          border: '1px solid #238636',
+          color: '#3fb950',
           fontSize: this.compact ? '11px' : '12px',
           fontFamily: 'monospace',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '6px'
+          gap: '5px'
         }
       },
-      'Start Listening'
+      '🎙️ Start Listening'
     );
 
     this.clearBtn = makeElement(
       'button',
       {
         onclick: () => this.clearContent(),
+        title: 'Clear editor text & active transcript',
         style: {
-          display: 'none',
-          backgroundColor: '#3a1c1c',
-          color: '#bd8a8a',
-          border: '1px solid #5e2a2a',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          backgroundColor: '#21262d',
+          color: '#ff7b72',
+          border: '1px solid #da363366',
           borderRadius: '6px',
           padding: this.compact ? '4px 8px' : '5px 10px',
           cursor: 'pointer',
-          fontWeight: '600',
+          fontWeight: '700',
           fontSize: this.compact ? '11px' : '12px',
-          fontFamily: 'monospace'
+          fontFamily: 'monospace',
+          transition: 'all 0.15s ease'
         }
       },
-      'Clear'
+      '🧹 Clear'
     );
 
     this.statusDiv = makeElement('div', {
       className: 'dictation-status-div',
       style: {
         fontStyle: 'italic',
-        color: '#94a3b8',
+        color: '#8b949e',
         margin: '0 4px',
         flex: '1',
         fontSize: this.compact ? '11px' : '12px',
@@ -195,37 +198,73 @@ class DictationWidget {
     this.replaceBtn = makeElement(
       'button',
       {
-        className: 'dr-nav-btn',
         title: 'Manage Custom Spoken Word Replacements',
-        style: { padding: this.compact ? '4px 8px' : '5px 10px', fontSize: this.compact ? '11px' : '12px', color: '#c084fc', borderColor: 'rgba(192, 132, 252, 0.4)' },
+        style: {
+          padding: this.compact ? '4px 8px' : '5px 10px',
+          fontSize: this.compact ? '11px' : '12px',
+          color: '#d2a8ff',
+          backgroundColor: '#1f104d',
+          border: '1px solid #8257e566',
+          borderRadius: '6px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        },
         onclick: () => this.openReplacementsDialog()
       },
-      'Vocabulary'
+      '🗣️ Vocab'
     );
 
     this.copyButton = makeElement(
       'button',
       {
-        className: 'dr-nav-btn',
-        style: { padding: this.compact ? '4px 8px' : '5px 10px', fontSize: this.compact ? '11px' : '12px' },
+        style: {
+          padding: this.compact ? '4px 8px' : '5px 10px',
+          fontSize: this.compact ? '11px' : '12px',
+          color: '#00f2fe',
+          backgroundColor: '#003847',
+          border: '1px solid #00f2fe66',
+          borderRadius: '6px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        },
         onclick: (e) => this.copyContent(e),
       },
-      'Copy'
+      '📋 Copy'
     );
 
     this.toggleEditBtn = makeElement(
       'button',
       {
-        className: 'dr-nav-btn',
-        style: { padding: this.compact ? '4px 8px' : '5px 10px', fontSize: this.compact ? '11px' : '12px' },
+        style: {
+          padding: this.compact ? '4px 8px' : '5px 10px',
+          fontSize: this.compact ? '11px' : '12px',
+          color: '#ffb74d',
+          backgroundColor: '#2d1f0d',
+          border: '1px solid #ff980066',
+          borderRadius: '6px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        },
         onclick: () => this.toggleEditMode()
       },
-      'Quick Edit'
+      '✏️ Edit'
     );
 
     controlsContainer.append(
-      this.clearBtn,
       this.toggleListenBtn,
+      this.clearBtn,
       this.statusDiv,
       this.replaceBtn,
       this.copyButton,
@@ -238,18 +277,18 @@ class DictationWidget {
       'data-placeholder': this.placeholder,
       style: {
         height: '100%',
-        minHeight: this.compact ? '100px' : '140px',
+        minHeight: this.compact ? '90px' : '130px',
         outline: 'none',
         whiteSpace: 'pre-wrap',
         fontSize: this.compact ? '13px' : '14px',
-        lineHeight: '1.6',
-        color: '#f8fafc',
-        padding: '12px',
+        lineHeight: '1.55',
+        color: '#f0f6fc',
+        padding: '10px 12px',
         boxSizing: 'border-box',
         flex: '1',
         overflowY: 'auto',
-        background: '#090d16',
-        fontFamily: 'var(--dr-font-sans, -apple-system, sans-serif)'
+        background: '#070a13',
+        fontFamily: 'monospace'
       },
     });
 
@@ -267,8 +306,8 @@ class DictationWidget {
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          backgroundColor: '#090d16',
-          border: '1.5px solid #232d3f',
+          backgroundColor: '#070a13',
+          border: '1.5px solid #21262d',
           borderRadius: '8px',
           overflow: 'hidden'
         },
@@ -422,7 +461,7 @@ class DictationWidget {
   setupRecognition() {
     const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechAPI) {
-      this.updateStatus('❌ Speech API not supported in this browser.');
+      this.updateStatus('Speech API not supported in browser');
       return;
     }
     this.recognition = new SpeechAPI();
@@ -438,7 +477,7 @@ class DictationWidget {
       }
       console.warn('[DictationWidget] Speech notice:', event.error);
       if (event.error === 'not-allowed') {
-        this.updateStatus('❌ Microphone access denied.');
+        this.updateStatus('❌ Microphone access denied');
         this.stopListening();
       }
     };
@@ -459,12 +498,12 @@ class DictationWidget {
 
     this.recognition.onspeechstart = () => {
       if (this.isListening) {
-        this.statusDiv.textContent = '🎙️ Transcribing voice...';
+        this.statusDiv.textContent = '🎙️ Transcribing...';
       }
     };
     this.recognition.onspeechend = () => {
       if (this.isListening) {
-        this.statusDiv.textContent = '🔴 Listening... (speak now)';
+        this.statusDiv.textContent = '🔴 Listening (speak now)';
       }
     };
   }
@@ -572,12 +611,6 @@ class DictationWidget {
     this.lastTokens = [];
   }
 
-  /**
-   * Processes transcript incorporating:
-   * 1. Literal escape protocol ("literal comma" -> "comma")
-   * 2. Punctuation mapping
-   * 3. Learned custom replacement dictionary
-   */
   processTranscript(rawText) {
     const tokens = rawText.trim().split(/\s+/);
     if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === '')) return '';
@@ -590,17 +623,13 @@ class DictationWidget {
       const lower = rawCurrent.toLowerCase();
       const nextLower = (tokens[i + 1] || '').toLowerCase();
 
-      // --- PROTOCOL 1: "LITERAL" ESCAPE PROTOCOL ---
-      // If the user says "literal comma", output "comma" as a literal word!
       if (lower === 'literal' && i + 1 < tokens.length) {
         const escapedWord = tokens[i + 1];
         out += escapedWord + ' ';
-        i++; // skip escaped word
+        i++;
         continue;
       }
 
-      // --- PROTOCOL 2: CUSTOM REPLACEMENT DICTIONARY ---
-      // Check multi-word replacement first
       const twoWordKey = `${lower} ${nextLower}`;
       if (this.customReplacements[twoWordKey]) {
         out += this.customReplacements[twoWordKey] + ' ';
@@ -611,7 +640,6 @@ class DictationWidget {
         continue;
       }
 
-      // --- PROTOCOL 3: PUNCTUATION PARSER ---
       let punct = undefined;
       let consumed = 0;
 
@@ -957,28 +985,29 @@ class DictationWidget {
     const hasText = this.hasContent();
 
     if (this.clearBtn) {
-      this.clearBtn.style.display = hasText ? 'inline-block' : 'none';
+      this.clearBtn.style.opacity = hasText ? '1' : '0.45';
+      this.clearBtn.style.pointerEvents = 'auto';
     }
 
     if (this.isListening) {
-      this.toggleListenBtn.textContent = 'Stop Listening';
-      this.toggleListenBtn.style.backgroundColor = '#331b1b';
-      this.toggleListenBtn.style.borderColor = '#4a2e2e';
-      this.toggleListenBtn.style.color = '#bf8a8a';
+      this.toggleListenBtn.textContent = '⏹️ Stop Listening';
+      this.toggleListenBtn.style.backgroundColor = '#3a1215';
+      this.toggleListenBtn.style.borderColor = '#da3633';
+      this.toggleListenBtn.style.color = '#ff7b72';
     } else {
-      this.toggleListenBtn.textContent = 'Start Listening';
-      this.toggleListenBtn.style.backgroundColor = '#1b3320';
-      this.toggleListenBtn.style.borderColor = '#2e4a32';
-      this.toggleListenBtn.style.color = '#8abf8e';
+      this.toggleListenBtn.textContent = '🎙️ Start Listening';
+      this.toggleListenBtn.style.backgroundColor = '#0d2818';
+      this.toggleListenBtn.style.borderColor = '#238636';
+      this.toggleListenBtn.style.color = '#3fb950';
     }
 
     this.toggleListenBtn.disabled = this.isEditing;
-    this.toggleEditBtn.textContent = this.isEditing ? 'Finish Editing' : 'Quick Edit';
+    this.toggleEditBtn.textContent = this.isEditing ? '✓ Done' : '✏️ Edit';
 
-    let status = '🔇 Idle';
-    if (this.isEditing) status = '✏️ Editing';
-    else if (this.isListening) status = '🔴 Listening... (speak freely)';
-    const modText = this.modifierHeld ? ' (Raw Mode)' : '';
+    let status = 'Idle';
+    if (this.isEditing) status = 'Editing Spans';
+    else if (this.isListening) status = '🔴 Listening (speak freely)';
+    const modText = this.modifierHeld ? ' [Raw]' : '';
     this.statusDiv.textContent = `${status}${modText}`;
   }
 
@@ -1046,6 +1075,9 @@ class DictationWidget {
       this.editorContent.removeChild(this.editorContent.firstChild);
     }
     this.staleTimestamp = 0;
+    this.updatePopup('');
+    this.lastTokens = [];
+    this.pendingPunct = [];
     this.editorContent.focus();
     this.updateButtonStates();
     this._notifySubscribers();
@@ -1218,8 +1250,7 @@ class DictationWidget {
       style: { flex: 1, padding: '6px 8px', background: '#070a13', color: '#00f2fe', border: '1px solid #232d3f', borderRadius: '4px' }
     });
     const addBtn = makeElement('button', {
-      className: 'dr-nav-btn primary',
-      style: { padding: '6px 10px', fontSize: '11px', fontWeight: 'bold' },
+      style: { padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', background: '#238636', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontFamily: 'monospace' },
       onclick: () => {
         const from = fromInput.value.trim();
         const to = toInput.value.trim();
@@ -1287,6 +1318,267 @@ class DictationWidget {
       });
     }
   }
+
+  static attach(targetElement, options = {}) {
+      if (!targetElement) return null;
+      if (targetElement._dictationAttachment) return targetElement._dictationAttachment;
+
+      const opts = options || {};
+      const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechAPI) {
+        console.warn('[DictationWidget.attach] Speech API not supported in this browser.');
+        return null;
+      }
+
+      const attachment = {
+        target: targetElement,
+        recognition: null,
+        isListening: false,
+        btn: null,
+        customReplacements: {},
+
+        init() {
+          try {
+            const raw = localStorage.getItem('dictation_custom_replacements');
+            if (raw) this.customReplacements = JSON.parse(raw);
+          } catch (e) {}
+
+          this._createMicBadge();
+          this._setupRecognition();
+          targetElement._dictationAttachment = this;
+        },
+
+        _createMicBadge() {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'dictation-attach-mic-btn';
+          btn.title = 'Click to dictate voice text into this field';
+          btn.innerHTML = '🎙️';
+          btn.style.cssText = [
+            'position: absolute;',
+            'z-index: 1000;',
+            'background: #161e2b;',
+            'color: #38bdf8;',
+            'border: 1px solid #38bdf866;',
+            'border-radius: 50%;',
+            'width: 26px;',
+            'height: 26px;',
+            'padding: 0;',
+            'display: flex;',
+            'align-items: center;',
+            'justify-content: center;',
+            'font-size: 13px;',
+            'cursor: pointer;',
+            'transition: all 0.15s ease;',
+            'box-shadow: 0 2px 8px rgba(0,0,0,0.4);',
+            'user-select: none;'
+          ].join('\n');
+
+          btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleListening();
+          };
+
+          const parent = targetElement.parentElement || document.body;
+          if (window.getComputedStyle(parent).position === 'static') {
+            parent.style.position = 'relative';
+          }
+
+          // Add padding-right to input so text never collides with mic badge
+          const curPadRight = parseInt(window.getComputedStyle(targetElement).paddingRight, 10) || 0;
+          if (curPadRight < 34) {
+            targetElement.style.paddingRight = (curPadRight + 30) + 'px';
+          }
+
+          const updatePos = () => {
+            const rect = targetElement.getBoundingClientRect();
+            const pRect = parent.getBoundingClientRect();
+            const rightOffset = 8;
+            btn.style.top = (rect.top - pRect.top + (rect.height / 2) - 13) + 'px';
+            btn.style.left = (rect.right - pRect.left - 26 - rightOffset) + 'px';
+          };
+
+          parent.appendChild(btn);
+          this.btn = btn;
+
+          updatePos();
+          window.addEventListener('resize', updatePos);
+        },
+
+        _setupRecognition() {
+          this.recognition = new SpeechAPI();
+          this.recognition.lang = opts.lang || 'en-US';
+          this.recognition.continuous = true;
+          this.recognition.interimResults = true;
+
+          this.recognition.onresult = (event) => {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+              }
+            }
+            if (finalTranscript.trim()) {
+              this.insertText(finalTranscript);
+            }
+          };
+
+          this.recognition.onerror = (e) => {
+            if (e.error === 'not-allowed') this.stopListening();
+          };
+
+          this.recognition.onend = () => {
+            if (this.isListening) {
+              try { this.recognition.start(); } catch (err) {}
+            }
+          };
+        },
+
+        startListening() {
+          if (this.isListening) return;
+          this.isListening = true;
+          try { this.recognition.start(); } catch (e) {}
+          this.btn.innerHTML = '⏹️';
+          this.btn.style.background = '#3a1215';
+          this.btn.style.borderColor = '#ff7b72';
+          this.btn.style.color = '#ff7b72';
+          this.btn.style.boxShadow = '0 0 12px rgba(255,123,114,0.6)';
+          targetElement.style.outline = '2px solid #00f2fe';
+          targetElement.focus();
+        },
+
+        stopListening() {
+          if (!this.isListening) return;
+          this.isListening = false;
+          try { this.recognition.stop(); } catch (e) {}
+          this.btn.innerHTML = '🎙️';
+          this.btn.style.background = '#161e2b';
+          this.btn.style.borderColor = '#38bdf866';
+          this.btn.style.color = '#38bdf8';
+          this.btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+          targetElement.style.outline = '';
+        },
+
+        toggleListening() {
+          if (this.isListening) this.stopListening();
+          else this.startListening();
+        },
+
+        insertText(rawText) {
+          // Run full punctuation and phonetic replacement pipeline
+          const formatted = DictationWidget.processTranscriptText(rawText, this.customReplacements);
+          if (!formatted) return;
+
+          targetElement.focus();
+          if (typeof targetElement.setRangeText === 'function') {
+            const start = targetElement.selectionStart || targetElement.value.length;
+            const end = targetElement.selectionEnd || targetElement.value.length;
+            const charBefore = targetElement.value.charAt(start - 1);
+            const needsSpace = start > 0 && !/\s$/.test(charBefore) && !/^[.,;:!?\n]/.test(formatted);
+            const toInsert = (needsSpace ? ' ' : '') + formatted;
+            targetElement.setRangeText(toInsert, start, end, 'end');
+            targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+          } else if (document.execCommand) {
+            document.execCommand('insertText', false, ' ' + formatted);
+          } else {
+            targetElement.value = (targetElement.value ? targetElement.value + ' ' : '') + formatted;
+            targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        },
+
+        destroy() {
+          this.stopListening();
+          if (this.btn) this.btn.remove();
+          delete targetElement._dictationAttachment;
+        }
+      };
+
+      attachment.init();
+      return attachment;
+    }
+  static processTranscriptText(rawText, customReplacements = {}, punctMapOverride = null) {
+      if (!rawText || typeof rawText !== 'string') return '';
+      const tokens = rawText.trim().split(/\s+/);
+      if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === '')) return '';
+
+      const defaultPunctMap = {
+        period: '.',
+        comma: ',',
+        'question mark': '?',
+        'exclamation point': '!',
+        'exclamation mark': '!',
+        exclamation: '!',
+        'new line': '\n\n',
+        newline: '\n\n',
+        'new paragraph': '\n\n',
+        colon: ':',
+        semicolon: ';',
+        dash: ' — ',
+        hyphen: '-'
+      };
+      const activePunctMap = punctMapOverride || defaultPunctMap;
+
+      let out = '';
+      let shouldCapitalizeNextWord = false;
+
+      for (let i = 0; i < tokens.length; i++) {
+        const rawCurrent = tokens[i];
+        const lower = rawCurrent.toLowerCase();
+        const nextLower = (tokens[i + 1] || '').toLowerCase();
+
+        // Protocol 1: "Literal" escape protocol
+        if (lower === 'literal' && i + 1 < tokens.length) {
+          out += tokens[i + 1] + ' ';
+          i++;
+          continue;
+        }
+
+        // Protocol 2: Custom phonetic replacements
+        const twoWordKey = `${lower} ${nextLower}`;
+        if (customReplacements && customReplacements[twoWordKey]) {
+          out += customReplacements[twoWordKey] + ' ';
+          i++;
+          continue;
+        } else if (customReplacements && customReplacements[lower]) {
+          out += customReplacements[lower] + ' ';
+          continue;
+        }
+
+        // Protocol 3: Punctuation grammar map
+        let punct = undefined;
+        let consumed = 0;
+
+        if (Object.prototype.hasOwnProperty.call(activePunctMap, twoWordKey)) {
+          punct = activePunctMap[twoWordKey];
+          consumed = 2;
+        } else if (Object.prototype.hasOwnProperty.call(activePunctMap, lower)) {
+          punct = activePunctMap[lower];
+          consumed = 1;
+        }
+
+        if (punct) {
+          if (out.endsWith(' ')) out = out.slice(0, -1);
+          out += punct;
+
+          if (/[.!?]|\n\n/.test(punct)) shouldCapitalizeNextWord = true;
+          if (/[.,!?;:]/.test(punct)) out += ' ';
+
+          i += consumed - 1;
+        } else {
+          let word = rawCurrent;
+          if (word.toLowerCase() === 'i') word = 'I';
+
+          if (shouldCapitalizeNextWord) {
+            word = word.charAt(0).toUpperCase() + word.slice(1);
+            shouldCapitalizeNextWord = false;
+          }
+          out += word + ' ';
+        }
+      }
+
+      return out.replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
+    }
 }
 
 globalThis.DictationWidget = DictationWidget;

@@ -26,14 +26,44 @@ class DictationPolicy {
       'colon': { out: ':', kind: 'punct' },
       'semicolon': { out: ';', kind: 'punct' }
     };
+    this._loadRules();
     Object.entries(opts.rules || {}).forEach(([h, w]) => this.rules.set(h.toLowerCase().trim(), w));
   }
 
   on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   _emit() { this.listeners.forEach(fn => { try { fn(); } catch (e) {} }); }
 
-  addRule(heard, write) { this.rules.set(String(heard).toLowerCase().trim(), write); this._emit(); }
-  removeRule(heard) { this.rules.delete(String(heard).toLowerCase().trim()); this._emit(); }
+  _loadRules() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('dictation_policy_rules_v1');
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) arr.forEach(([h, w]) => this.rules.set(h, w));
+        }
+      }
+    } catch(e) {}
+  }
+
+  _saveRules() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('dictation_policy_rules_v1', JSON.stringify(Array.from(this.rules.entries())));
+      }
+    } catch(e) {}
+  }
+
+  addRule(heard, write) {
+    this.rules.set(String(heard).toLowerCase().trim(), write);
+    this._saveRules();
+    this._emit();
+  }
+
+  removeRule(heard) {
+    this.rules.delete(String(heard).toLowerCase().trim());
+    this._saveRules();
+    this._emit();
+  }
   setDisabled(phrase, v = true) { if (v) this.disabled.add(phrase); else this.disabled.delete(phrase); this._emit(); }
 
   static needsSpace(prev, it) {
@@ -50,9 +80,26 @@ class DictationPolicy {
       if (it.empty) { out.push({ ...it, endIdx: it.idx, endSpan: it.spanId }); i++; continue; }
 
       if (it.text.toLowerCase() === this.literalWord && i + 1 < items.length && !items[i + 1].empty) {
-        const nx = items[i + 1];
-        out.push({ ...nx, kind: 'literal', raw: `${it.text} ${nx.text}`, phrase: null, idx: it.idx, spanId: it.spanId, endIdx: nx.idx, endSpan: nx.spanId });
-        i += 2; continue;
+        let matchedN = 1;
+        for (let n = Math.min(MAX, items.length - (i + 1)); n >= 1; n--) {
+          const slice = items.slice(i + 1, i + 1 + n);
+          if (slice.some(s => s.empty)) continue;
+          const phrase = slice.map(s => s.text.toLowerCase()).join(' ');
+          if (this.rules.has(phrase) || this.commands[phrase]) {
+            matchedN = n;
+            break;
+          }
+        }
+        const slice = items.slice(i + 1, i + 1 + matchedN);
+        const litText = slice.map(s => s.text).join(' ');
+        const last = slice[slice.length - 1];
+        out.push({
+          text: litText, kind: 'literal', raw: `${it.text} ${litText}`, phrase: null,
+          spanId: it.spanId, idx: it.idx, endIdx: last.idx, endSpan: last.spanId,
+          choiceId: slice[0].choiceId, alts: slice[0].alts, pinned: slice[0].pinned
+        });
+        i += 1 + matchedN;
+        continue;
       }
 
       let hit = null;
@@ -97,7 +144,7 @@ class DictationPolicy {
         else if (it.kind === 'punct') { if (/[.?!]/.test(it.text)) cap = true; }
         else {
           if (it.text === 'i') it.text = 'I';
-          if (it.text && it.kind !== 'literal') {
+          if (it.text) {
             if (force === true || (force === null && cap)) it.text = it.text.charAt(0).toUpperCase() + it.text.slice(1);
             else if (force === false && it.text !== 'I') it.text = it.text.charAt(0).toLowerCase() + it.text.slice(1);
           }

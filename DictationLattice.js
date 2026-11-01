@@ -317,6 +317,58 @@ class DictationLattice {
     return true;
   }
 
+  splitSpanAt(spanId, tokenIndex) {
+    const span = this.spans.get(spanId);
+    if (!span) return;
+    const items = this.items(span);
+    if (tokenIndex <= 0) {
+      const orderIdx = this.order.indexOf(spanId);
+      this.writeAfter = orderIdx > 0 ? this.order[orderIdx - 1] : null;
+      this._emit('head', this.writeAfter);
+      return;
+    }
+    if (tokenIndex >= items.length) {
+      this.writeAfter = spanId;
+      this._emit('head', spanId);
+      return;
+    }
+    const wordsA = items.slice(0, tokenIndex).map(it => it.text);
+    const wordsB = items.slice(tokenIndex).map(it => it.text);
+    const now = this.now();
+    const idA = this._id('s');
+    const idB = this._id('s');
+    const spanA = {
+      id: idA, key: span.key + ':a', createdAt: span.createdAt, lastT: now, lastInteract: now,
+      revCount: 1, final: true, collapsed: false, confidence: span.confidence,
+      segments: [{ type: 'text', tokens: wordsA }], joints: {}
+    };
+    const spanB = {
+      id: idB, key: span.key + ':b', createdAt: now, lastT: span.lastT, lastInteract: now,
+      revCount: 1, final: true, collapsed: false, confidence: span.confidence,
+      segments: [{ type: 'text', tokens: wordsB }], joints: {}
+    };
+    for (const [k, v] of Object.entries(span.joints || {})) {
+      const idx = +k;
+      if (idx < tokenIndex) spanA.joints[idx] = v;
+      else spanB.joints[idx - tokenIndex] = v;
+    }
+    this.spans.delete(spanId);
+    this.spans.set(idA, spanA);
+    this.spans.set(idB, spanB);
+    this.keyToSpan.set(spanA.key, idA);
+    this.keyToSpan.set(spanB.key, idB);
+    const oIdx = this.order.indexOf(spanId);
+    if (oIdx !== -1) {
+      this.order.splice(oIdx, 1, idA, idB);
+    } else {
+      this.order.push(idA, idB);
+    }
+    this.writeAfter = idA;
+    if (this.recordLog) this.log.push({ t: now, op: 'splitSpan', spanId, tokenIndex, idA, idB });
+    this._emit('head', idA);
+    this._emit('change', idA);
+  }
+
   setWriteHead(spanId) {
     if (spanId !== null && !this.spans.has(spanId)) return;
     if (this.recordLog) this.log.push({ t: this.now(), op: 'head', spanId });

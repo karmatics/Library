@@ -14,7 +14,7 @@
  * NOTE: strings use single quotes; write apostrophes as the typographic character, never a straight quote.
  */
 class DictationDocs {
-  static get version() { return '0.4-spec'; }
+  static get version() { return '0.6-live'; }
 
   static get order() {
     return [
