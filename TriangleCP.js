@@ -1,5 +1,4 @@
 class TriangleCP {
-  
   constructor(initialWidth, initialHue = 0) {
     this.hue = initialHue;
     this.rotation = 0;
@@ -186,7 +185,7 @@ class TriangleCP {
 
     ctx.clearRect(0, 0, width, height);
 
-    const pureHue = AppColorUtils.hsvToRgbArray(this.hue / 360, 1, 1);
+    const pureHue = ColorUtils.hsvToRgbArray(this.hue / 360, 1, 1);
     this.bgPath.setAttribute(
       'fill',
       `rgb(${pureHue[0]}, ${pureHue[1]}, ${pureHue[2]})`
@@ -215,7 +214,7 @@ class TriangleCP {
       return Math.sqrt((P.x - projX) ** 2 + (P.y - projY) ** 2);
     };
 
-    const paintRadius = this.currentBorderRadius + 0.5;
+    const paintRadius = this.currentBorderRadius + 0.5; // Use new property
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
@@ -337,7 +336,7 @@ class TriangleCP {
     const x = wA * A.x + wB * B.x + wC * C.x;
     const y = wA * A.y + wB * B.y + wC * C.y;
 
-    const pureHue = AppColorUtils.hsvToRgbArray(this.hue / 360, 1, 1);
+    const pureHue = ColorUtils.hsvToRgbArray(this.hue / 360, 1, 1);
     const r = Math.round(wA * pureHue[0] + wC * 255);
     const g = Math.round(wA * pureHue[1] + wC * 255);
     const b = Math.round(wA * pureHue[2] + wC * 255);
@@ -351,49 +350,25 @@ class TriangleCP {
     this.updateCursorFromWeights();
   }
 
-  setColor(colorStr) {
-      const parseColorToRgb = (cStr) => {
-        if (!cStr) return [0, 136, 255];
-        cStr = String(cStr).trim();
-        if (cStr.startsWith('#')) {
-          let hex = cStr.slice(1);
-          if (hex.length === 3) {
-            hex = hex.split('').map(c => c + c).join('');
-          }
-          if (hex.length === 6) {
-            const r = parseInt(hex.substring(0, 2), 16);
-            const g = parseInt(hex.substring(2, 4), 16);
-            const b = parseInt(hex.substring(4, 6), 16);
-            return [r, g, b];
-          }
-        }
-        const rgbMatch = cStr.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
-        if (rgbMatch) {
-          return [parseInt(rgbMatch[1]), parseInt(rgbMatch[2]), parseInt(rgbMatch[3])];
-        }
-        if (typeof AppColorUtils !== 'undefined' && AppColorUtils.rgbStringToRgbArray) {
-          const arr = AppColorUtils.rgbStringToRgbArray(cStr);
-          if (arr) return arr;
-        }
-        return [0, 136, 255];
-      };
+  setColor(rgbString) {
+    const rgb = ColorUtils.rgbStringToRgbArray(rgbString);
+    if (!rgb) return;
 
-      const rgb = parseColorToRgb(colorStr);
-      const hsv = AppColorUtils.rgbToHsv(rgb[0], rgb[1], rgb[2]);
-      this.hue = hsv.h;
+    const hsv = ColorUtils.rgbToHsv(rgb[0], rgb[1], rgb[2]);
+    this.hue = hsv.h;
 
-      const wB = 1 - hsv.v;
-      const wA = hsv.s * hsv.v;
-      const wC = 1 - wA - wB;
+    const wB = 1 - hsv.v;
+    const wA = hsv.s * hsv.v;
+    const wC = 1 - wA - wB;
 
-      this.weights = { wA, wB, wC };
+    this.weights = { wA, wB, wC };
 
-      if (this.triGeometry) {
-        this.updateCursorFromWeights();
-      }
-
-      this.draw();
+    if (this.triGeometry) {
+      this.updateCursorFromWeights();
     }
+
+    this.draw();
+  }
 
   addEventListeners() {
     const handleMove = (e) => {
@@ -458,7 +433,7 @@ class TriangleCP {
     const cx = wA * A.x + wB * B.x + wC * C.x;
     const cy = wA * A.y + wB * B.y + wC * C.y;
 
-    const pureHue = AppColorUtils.hsvToRgbArray(this.hue / 360, 1, 1);
+    const pureHue = ColorUtils.hsvToRgbArray(this.hue / 360, 1, 1);
     const r = Math.round(wA * pureHue[0] + wC * 255);
     const g = Math.round(wA * pureHue[1] + wC * 255);
     const b = Math.round(wA * pureHue[2] + wC * 255);
@@ -500,31 +475,12 @@ class TriangleCP {
   }
 
   getColorString() {
-    const pureHue = AppColorUtils.hsvToRgbArray(this.hue / 360, 1, 1);
+    const pureHue = ColorUtils.hsvToRgbArray(this.hue / 360, 1, 1);
     const r = Math.round(this.weights.wA * pureHue[0] + this.weights.wC * 255);
     const g = Math.round(this.weights.wA * pureHue[1] + this.weights.wC * 255);
     const b = Math.round(this.weights.wA * pureHue[2] + this.weights.wC * 255);
     return `rgb(${r}, ${g}, ${b})`;
   }
 
-  
-
-  _hsvToRgb(h, s, v) {
-    let r, g, b, i, f, p, q, t;
-    i = Math.floor(h * 6);
-    f = h * 6 - i;
-    p = v * (1 - s);
-    q = v * (1 - f * s);
-    t = v * (1 - (1 - f) * s);
-    switch (i % 6) {
-        case 0: r = v, g = t, b = p; break;
-        case 1: r = q, g = v, b = p; break;
-        case 2: r = p, g = v, b = t; break;
-        case 3: r = p, g = q, b = v; break;
-        case 4: r = t, g = p, b = v; break;
-        case 5: r = v, g = p, b = q; break;
-    }
-    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-  }
 }
 
