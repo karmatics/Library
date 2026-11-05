@@ -69,10 +69,10 @@ class DocumentReader {
           background-color: var(--dr-bg);
           color: var(--dr-text);
           font-family: var(--dr-font-body);
-          padding: 84px 24px 160px;
+          padding: 72px 20px 140px;
           box-sizing: border-box;
           display: flex;
-          justifyContent: center;
+          justify-content: center;
           transition: background-color 0.2s ease, color 0.2s ease;
         }
 
@@ -90,7 +90,7 @@ class DocumentReader {
           -webkit-backdrop-filter: blur(16px);
           border-bottom: 1px solid var(--dr-toolbar-border);
           display: flex; align-items: center; justify-content: space-between;
-          padding: 0 18px; box-sizing: border-box; z-index: 1000; gap: 12px;
+          padding: 0 16px; box-sizing: border-box; z-index: 1000; gap: 10px;
         }
 
         .dr-brand {
@@ -147,42 +147,42 @@ class DocumentReader {
         }
 
         .dr-article-header {
-          margin-bottom: 48px; padding-bottom: 28px;
+          margin-bottom: 44px; padding-bottom: 24px;
           border-bottom: 1.5px solid var(--dr-border);
         }
         .dr-kicker {
           font-family: 'Cinzel', serif;
           font-size: 0.82rem; font-weight: 900;
           letter-spacing: 0.16em; text-transform: uppercase;
-          color: var(--cad-cyan); margin-bottom: 14px;
+          color: var(--cad-cyan); margin-bottom: 12px;
           text-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
         }
         .dr-title {
           font-family: var(--dr-font-sans);
-          font-size: 2.6rem; font-weight: 800; line-height: 1.18;
-          letter-spacing: -0.03em; margin: 0 0 16px 0; color: var(--dr-text);
+          font-size: 2.45rem; font-weight: 800; line-height: 1.18;
+          letter-spacing: -0.03em; margin: 0 0 14px 0; color: var(--dr-text);
         }
         .dr-subtitle {
-          font-size: 1.25rem; font-style: italic; color: var(--dr-text-subtle);
-          line-height: 1.55; margin: 0; font-family: var(--dr-font-body);
+          font-size: 1.2rem; font-style: italic; color: var(--dr-text-subtle);
+          line-height: 1.5; margin: 0; font-family: var(--dr-font-body);
         }
 
         .dr-section-divider {
-          margin: 52px 0 28px 0; padding-top: 32px;
+          margin: 48px 0 24px 0; padding-top: 28px;
           border-top: 1px solid var(--dr-border);
         }
         .dr-section-part {
           font-family: var(--dr-font-sans); font-size: 0.74rem; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.14em;
-          color: var(--cad-cyan); margin-bottom: 8px;
+          color: var(--cad-cyan); margin-bottom: 6px;
         }
         .dr-section-title {
-          font-family: var(--dr-font-sans); font-size: 1.65rem; font-weight: 800;
-          letter-spacing: -0.025em; color: var(--dr-text); margin: 0 0 22px 0;
+          font-family: var(--dr-font-sans); font-size: 1.6rem; font-weight: 800;
+          letter-spacing: -0.025em; color: var(--dr-text); margin: 0 0 20px 0;
         }
 
         .dr-block-wrapper {
-          position: relative; margin: 20px 0; padding: 10px 16px;
+          position: relative; margin: 18px 0; padding: 6px 12px;
           border-radius: 8px; transition: all 0.18s ease; cursor: pointer;
         }
         .dr-block-wrapper:hover {
@@ -194,25 +194,18 @@ class DocumentReader {
         }
 
         .dr-block-p-wrap {
-          margin: 14px 0;
+          margin: 12px 0;
         }
-        .dr-block-p-wrap:first-child {
-          margin-top: 0;
-        }
-        .dr-block-p-wrap:last-child {
-          margin-bottom: 0;
-        }
+        .dr-block-p-wrap:first-child { margin-top: 0; }
+        .dr-block-p-wrap:last-child { margin-bottom: 0; }
 
         .dr-block-p {
-          font-size: 1.22rem; line-height: 1.82; margin: 0 0 14px 0; color: var(--dr-text);
+          font-size: 1.2rem; line-height: 1.8; margin: 0 0 12px 0; color: var(--dr-text);
         }
-        .dr-block-p:last-child {
-          margin-bottom: 0;
-        }
+        .dr-block-p:last-child { margin-bottom: 0; }
 
-        /* Semantic Formatted Lists */
         .dr-content-list {
-          margin: 12px 0 16px 24px;
+          margin: 10px 0 14px 22px;
           padding: 0;
         }
         .dr-content-list-item {
@@ -222,7 +215,7 @@ class DocumentReader {
           color: var(--dr-text);
         }
         .dr-sidebar-body .dr-content-list-item {
-          font-size: 1.05rem;
+          font-size: 1.02rem;
           line-height: 1.6;
           color: var(--dr-text-subtle);
         }
@@ -245,15 +238,15 @@ class DocumentReader {
         }
 
         .dr-block-quote {
-          margin: 28px 0; padding: 18px 24px;
+          margin: 26px 0; padding: 16px 22px;
           border-left: 3.5px solid var(--dr-quote-border);
-          font-style: italic; font-size: 1.32rem; line-height: 1.55;
+          font-style: italic; font-size: 1.28rem; line-height: 1.55;
           color: var(--dr-text); background: var(--dr-quote-bg);
           border-radius: 0 10px 10px 0;
         }
 
         .dr-block-sidebar {
-          margin: 28px 0; padding: 20px 24px;
+          margin: 26px 0; padding: 18px 22px;
           background: var(--dr-card-bg);
           border-left: 4px solid var(--cad-cyan);
           border-top: 1px solid var(--dr-border);
@@ -263,16 +256,16 @@ class DocumentReader {
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
         }
         .dr-sidebar-kicker {
-          font-family: var(--dr-font-sans); font-size: 0.75rem; font-weight: 800;
+          font-family: var(--dr-font-sans); font-size: 0.74rem; font-weight: 800;
           letter-spacing: 0.14em; text-transform: uppercase;
           color: var(--cad-cyan); margin-bottom: 6px;
         }
         .dr-sidebar-title {
-          font-family: var(--dr-font-sans); font-size: 1.18rem; font-weight: 700;
-          color: var(--dr-text); margin-bottom: 10px;
+          font-family: var(--dr-font-sans); font-size: 1.15rem; font-weight: 700;
+          color: var(--dr-text); margin-bottom: 8px;
         }
         .dr-sidebar-body {
-          font-size: 1.08rem; line-height: 1.68; color: var(--dr-text-subtle);
+          font-size: 1.05rem; line-height: 1.65; color: var(--dr-text-subtle);
         }
 
         .dr-hover-action-pill {
@@ -315,7 +308,6 @@ class DocumentReader {
 
       applyCss(css, 'DocumentReaderStyles');
     }
-
   async init() {
       this.container.innerHTML = '';
 
@@ -387,10 +379,10 @@ class DocumentReader {
       const sidePanelBtn = makeElement('button', {
         className: 'dr-nav-btn',
         id: 'dr-btn-sidepanel-toggle',
-        title: 'Toggle Navigation & Master Outline Sidebar',
+        title: 'Toggle Navigation & Chapter Outline Sidebar',
         style: {
-          padding: '6px 12px',
-          fontSize: '0.8rem',
+          padding: '5px 12px',
+          fontSize: '0.78rem',
           fontWeight: '800',
           color: '#00f2fe',
           borderColor: 'rgba(0, 242, 254, 0.45)',
@@ -398,9 +390,8 @@ class DocumentReader {
           borderRadius: '20px'
         },
         onclick: () => {
-          if (globalThis.CadPlanItemNotes) globalThis.CadPlanItemNotes.playHapticSound('click');
-          if (globalThis._cadPlanInstance?.sidePanel) {
-            globalThis._cadPlanInstance.sidePanel.toggle(!globalThis._cadPlanInstance.sidePanel.isOpen);
+          if (globalThis._economicsInstance?.sidePanel) {
+            globalThis._economicsInstance.sidePanel.toggle(!globalThis._economicsInstance.sidePanel.isOpen);
           } else {
             this.toggleNavigationSidePanel();
           }
@@ -421,12 +412,12 @@ class DocumentReader {
           padding: '0 8px',
           userSelect: 'none'
         }
-      }, this.pages.find(p => p.id === this.currentPageId)?.title || 'CadPlan');
+      }, this.pages.find(p => p.id === this.currentPageId)?.title || 'The Robot Dividend');
 
-      const aardvarkBtn = makeElement('button', {
+      const exportMdBtn = makeElement('button', {
         className: 'dr-nav-btn',
-        id: 'btn-toggle-aardvark-inspector',
-        title: 'Toggle Aardvark Universal Note Picker [Hotkey: C on elements]',
+        id: 'dr-btn-export-markdown',
+        title: 'Extract Complete Treatise as Markdown [Clipboard & Download]',
         style: {
           padding: '5px 12px',
           fontSize: '0.78rem',
@@ -436,53 +427,8 @@ class DocumentReader {
           background: 'rgba(0, 242, 254, 0.08)',
           borderRadius: '16px'
         },
-        onclick: () => {
-          if (globalThis.CadPlanItemNotes) globalThis.CadPlanItemNotes.playHapticSound('click');
-          if (globalThis._cadPlanInstance?.aardvark) {
-            globalThis._cadPlanInstance.aardvark.toggle();
-            const active = globalThis._cadPlanInstance.aardvark.isActive;
-            aardvarkBtn.style.background = active ? 'rgba(0, 242, 254, 0.25)' : 'rgba(0, 242, 254, 0.08)';
-            aardvarkBtn.style.boxShadow = active ? '0 0 12px rgba(0, 242, 254, 0.5)' : 'none';
-            aardvarkBtn.textContent = active ? '🔍 Aardvark [ON]' : '🔍 Aardvark';
-          }
-        }
-      }, '🔍 Aardvark');
-
-      const livingSpecPromptBtn = makeElement('button', {
-        className: 'dr-nav-btn',
-        id: 'dr-btn-notes-prompt',
-        title: 'Open Living Specification Directive Deck & AI Patch Compiler',
-        style: {
-          padding: '5px 12px',
-          fontSize: '0.78rem',
-          fontWeight: '800',
-          color: '#00f2fe',
-          borderColor: 'rgba(0, 242, 254, 0.35)',
-          background: 'rgba(0, 242, 254, 0.08)',
-          borderRadius: '16px'
-        },
-        onclick: () => {
-          if (this.itemNotes) {
-            this.itemNotes.openPromptBuilderDialog(this);
-          }
-        }
-      }, '⚡ Living Spec');
-
-      const lunoDrawerBtn = makeElement('button', {
-        className: 'dr-nav-btn',
-        id: 'btn-toggle-luno-cockpit',
-        title: 'Open In-Process Luno Workspace Control Drawer',
-        style: {
-          padding: '5px 12px',
-          fontSize: '0.78rem',
-          fontWeight: '800',
-          color: '#d2a8ff',
-          borderColor: '#8257e5',
-          background: 'rgba(130, 87, 229, 0.15)',
-          borderRadius: '16px'
-        },
-        onclick: () => this._toggleLunoCockpitDrawer()
-      }, '🌙 Luno');
+        onclick: () => this.showExportDialog()
+      }, '📤 Export MD');
 
       const themeBtn = makeElement('button', {
         className: 'dr-nav-btn',
@@ -504,9 +450,7 @@ class DocumentReader {
         ]),
         this.activeChapterBreadcrumb,
         makeElement('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } }, [
-          aardvarkBtn,
-          livingSpecPromptBtn,
-          lunoDrawerBtn,
+          exportMdBtn,
           themeBtn
         ])
       ]);
@@ -526,7 +470,7 @@ class DocumentReader {
       };
       window.addEventListener('scroll', this._scrollHandler, { passive: true });
 
-      // Fluid reading shell: adapts smoothly around the sidebar, eliminating huge empty gutters
+      // Fluid reading shell: centered in available canvas without double-margin waste
       this.shell = makeElement('div', {
         className: 'dr-shell',
         style: {
@@ -535,7 +479,7 @@ class DocumentReader {
           boxSizing: 'border-box',
           display: 'flex',
           justifyContent: 'center',
-          padding: '84px 28px 160px',
+          padding: '76px 20px 140px',
           transition: 'margin-left 0.25s cubic-bezier(0.2, 0.0, 0.2, 1), width 0.25s cubic-bezier(0.2, 0.0, 0.2, 1)'
         }
       });
@@ -544,7 +488,7 @@ class DocumentReader {
         className: 'dr-article-container',
         style: {
           width: '100%',
-          maxWidth: '1080px', // Fluid wide reading column that avoids awkward whitespace on 1080p+ screens
+          maxWidth: '820px',
           position: 'relative'
         }
       });
@@ -552,9 +496,11 @@ class DocumentReader {
       this.shell.appendChild(this.articleContainer);
       this.container.appendChild(this.shell);
 
-      // Sync layout safe area with SidePanel changes
+      // Sync layout safe area with SidePanel changes: avoid double margin if parent is offset
       this._safeAreaSync = (e) => {
-        const left = e.detail?.left || 0;
+        const isMobile = window.innerWidth < 860;
+        const left = isMobile ? 0 : (e.detail?.left || 0);
+
         if (this.navBar) {
           this.navBar.style.left = `${left}px`;
           this.navBar.style.width = left > 0 ? `calc(100% - ${left}px)` : '100%';
@@ -564,14 +510,17 @@ class DocumentReader {
           this.progressTrack.style.width = left > 0 ? `calc(100% - ${left}px)` : '100%';
         }
         if (this.shell) {
-          this.shell.style.marginLeft = `${left}px`;
-          this.shell.style.width = left > 0 ? `calc(100% - ${left}px)` : '100%';
+          const parentOffset = parseFloat(this.container?.style?.marginLeft || '0');
+          const remainingOffset = Math.max(0, left - parentOffset);
+          this.shell.style.marginLeft = `${remainingOffset}px`;
+          this.shell.style.width = remainingOffset > 0 ? `calc(100% - ${remainingOffset}px)` : '100%';
         }
       };
       window.addEventListener('layout-safe-area-change', this._safeAreaSync);
 
-      const initialLeft = (typeof SidePanel !== 'undefined' && SidePanel.getInstances()?.left?.isOpen)
-        ? (SidePanel.getInstances().left.width || 320)
+      const isMobile = window.innerWidth < 860;
+      const initialLeft = (!isMobile && typeof SidePanel !== 'undefined' && SidePanel.getInstances()?.left?.isOpen)
+        ? (SidePanel.getInstances().left.width || 280)
         : 0;
       if (initialLeft > 0) {
         this._safeAreaSync({ detail: { left: initialLeft } });
@@ -1108,48 +1057,224 @@ static ${blockId}() {
   }
 
   showExportDialog() {
-      const mdLines = [];
-      const dossierId = this.options?.dossierId || this.brandTitle || 'CadPlan';
+      let exportScope = 'full'; // 'full' or 'current'
 
-      this.pages.forEach((pageDef, idx) => {
-        const doc = pageDef.docClass ? pageDef.docClass() : null;
-        if (!doc) return;
-        const meta = doc.getMeta ? doc.getMeta() : { title: pageDef.title };
-        const manifest = doc.manifest ? doc.manifest() : [];
+      const getMarkdownContent = () => {
+        if (exportScope === 'current') {
+          const curPage = this.pages.find(p => p.id === this.currentPageId) || this.pages[0];
+          return this.generatePageMarkdown(curPage);
+        }
+        return this.generateFullMarkdown();
+      };
 
-        mdLines.push(`# Part ${idx + 1}: ${meta.title}`);
-        if (meta.subtitle) mdLines.push(`> *${meta.subtitle}*`);
-        mdLines.push('');
+      let currentText = getMarkdownContent();
 
-        manifest.forEach((sec) => {
-          mdLines.push(`## ${sec.title}`);
-          mdLines.push('');
-          (sec.blocks || []).forEach((b) => {
-            const variants = (typeof doc[b.id] === 'function') ? doc[b.id]() : [];
-            const vKey = `${pageDef.id}:${b.id}`;
-            const curIdx = this.activeVariants[vKey] || 0;
-            const txt = variants[curIdx] || variants[0] || '';
-            if (b.type === 'quote') mdLines.push(`> "${txt}"\n`);
-            else if (b.type === 'sidebar') mdLines.push(`> **${b.title || 'Note'}:** ${txt}\n`);
-            else mdLines.push(`${txt}\n`);
-          });
-        });
-        mdLines.push('---\n');
+      const dialogWrap = makeElement('div', {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '14px',
+          padding: '6px 2px',
+          color: '#f8fafc',
+          fontFamily: 'var(--dr-font-sans, system-ui, sans-serif)',
+          boxSizing: 'border-box'
+        }
       });
 
-      const fullMd = mdLines.join('\n');
-      const ItemNotes = globalThis.CadPlanItemNotes || globalThis.DocumentItemNotes;
-
-      if (ItemNotes && typeof ItemNotes.dispatchToOutbox === 'function') {
-        const res = ItemNotes.dispatchToOutbox(`${dossierId} Full Dossier Export`, fullMd);
-        if (res.channel === 'clipboard-fallback') {
-          alert('Exported full document dossier across all chapters to clipboard as Markdown!');
-        } else {
-          alert(`✓ Dispatched complete multi-chapter dossier to Luno Outbox via [${res.channel}]!`);
+      // Top description & Scope selector
+      const topBar = makeElement('div', {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px',
+          borderBottom: '1px solid #1e293b',
+          paddingBottom: '10px'
         }
+      });
+
+      const scopeToggleBox = makeElement('div', {
+        style: {
+          display: 'flex',
+          background: '#0d131f',
+          border: '1px solid #1e293b',
+          borderRadius: '20px',
+          padding: '3px',
+          gap: '4px'
+        }
+      });
+
+      const btnScopeFull = makeElement('button', {
+        className: 'dr-nav-btn primary',
+        style: { padding: '4px 12px', fontSize: '11px', borderRadius: '16px' },
+        onclick: () => {
+          exportScope = 'full';
+          btnScopeFull.classList.add('primary');
+          btnScopeCur.classList.remove('primary');
+          currentText = getMarkdownContent();
+          textarea.value = currentText;
+          updateCounts();
+        }
+      }, '📚 Full Treatise (All 10 Parts)');
+
+      const curPageObj = this.pages.find(p => p.id === this.currentPageId) || this.pages[0];
+      const btnScopeCur = makeElement('button', {
+        className: 'dr-nav-btn',
+        style: { padding: '4px 12px', fontSize: '11px', borderRadius: '16px' },
+        onclick: () => {
+          exportScope = 'current';
+          btnScopeCur.classList.add('primary');
+          btnScopeFull.classList.remove('primary');
+          currentText = getMarkdownContent();
+          textarea.value = currentText;
+          updateCounts();
+        }
+      }, `📄 Current Part (${curPageObj.title.split('.')[0]})`);
+
+      scopeToggleBox.append(btnScopeFull, btnScopeCur);
+
+      const statsBadge = makeElement('div', {
+        id: 'export-stats-badge',
+        style: {
+          fontSize: '11px',
+          fontFamily: 'var(--dr-font-mono, monospace)',
+          color: '#00f2fe',
+          background: 'rgba(0, 242, 254, 0.08)',
+          border: '1px solid rgba(0, 242, 254, 0.25)',
+          borderRadius: '12px',
+          padding: '3px 10px'
+        }
+      });
+
+      topBar.append(scopeToggleBox, statsBadge);
+      dialogWrap.appendChild(topBar);
+
+      // Textarea with high contrast monospace view
+      const textarea = makeElement('textarea', {
+        spellcheck: 'false',
+        style: {
+          width: '100%',
+          height: '380px',
+          background: '#070a13',
+          color: '#e2e8f0',
+          border: '1.5px solid #1e293b',
+          borderRadius: '8px',
+          padding: '12px 14px',
+          fontFamily: 'var(--dr-font-mono, monospace)',
+          fontSize: '11.5px',
+          lineHeight: '1.6',
+          resize: 'vertical',
+          outline: 'none',
+          boxSizing: 'border-box',
+          whiteSpace: 'pre'
+        }
+      });
+      textarea.value = currentText;
+      dialogWrap.appendChild(textarea);
+
+      const updateCounts = () => {
+        const words = (textarea.value.trim().match(/\S+/g) || []).length;
+        const chars = textarea.value.length;
+        statsBadge.textContent = `${words.toLocaleString()} words • ${chars.toLocaleString()} chars`;
+      };
+      updateCounts();
+
+      textarea.addEventListener('input', updateCounts);
+
+      // Footer actions
+      const footerBar = makeElement('div', {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingTop: '6px',
+          borderTop: '1px solid #1e293b'
+        }
+      });
+
+      const copyBtn = makeElement('button', {
+        className: 'dr-nav-btn primary',
+        style: {
+          padding: '7px 18px',
+          fontSize: '12px',
+          fontWeight: '800',
+          borderRadius: '20px'
+        },
+        onclick: () => {
+          textarea.select();
+          const copySuccess = () => {
+            const orig = copyBtn.textContent;
+            copyBtn.textContent = '✓ Copied Markdown to Clipboard!';
+            copyBtn.style.background = '#10b981';
+            setTimeout(() => {
+              copyBtn.textContent = orig;
+              copyBtn.style.background = '';
+            }, 2000);
+          };
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textarea.value).then(copySuccess).catch(() => {
+              document.execCommand('copy');
+              copySuccess();
+            });
+          } else {
+            document.execCommand('copy');
+            copySuccess();
+          }
+        }
+      }, '📋 Copy to Clipboard');
+
+      const downloadBtn = makeElement('button', {
+        className: 'dr-nav-btn',
+        style: {
+          padding: '7px 16px',
+          fontSize: '12px',
+          fontWeight: '700',
+          color: '#00f2fe',
+          borderColor: 'rgba(0, 242, 254, 0.45)',
+          borderRadius: '20px'
+        },
+        onclick: () => {
+          const text = textarea.value;
+          const cur = this.pages.find(p => p.id === this.currentPageId) || this.pages[0];
+          const filename = exportScope === 'full'
+            ? 'TheRobotDividend_RobBrown_FullTreatise.md'
+            : `TheRobotDividend_${cur.id}.md`;
+
+          const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }, '💾 Download .md File');
+
+      const actionsRight = makeElement('div', { style: { display: 'flex', gap: '8px' } }, [
+        downloadBtn,
+        copyBtn
+      ]);
+
+      footerBar.append(
+        makeElement('span', { style: { fontSize: '11px', color: '#64748b' } }, 'Ready to paste into Claude, GPT-4, or any markdown editor.'),
+        actionsRight
+      );
+      dialogWrap.appendChild(footerBar);
+
+      if (typeof UITools !== 'undefined' && typeof UITools.makeDialog === 'function') {
+        UITools.makeDialog({
+          title: '📤 Export Treatise as Markdown',
+          size: [760, 560],
+          position: [Math.max(16, Math.floor((window.innerWidth - 760) / 2)), 45],
+          contentElement: dialogWrap,
+          appendTo: document.body
+        });
       } else {
-        navigator.clipboard.writeText(fullMd);
-        alert('Exported full document dossier across all chapters to clipboard as Markdown!');
+        prompt('Markdown text:', currentText);
       }
     }
   destroy() {
@@ -2742,6 +2867,162 @@ static ${blockId}() {
         ]),
         makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold' } }, 'Test & Verify ➔')
       ]);
+    }
+
+  _htmlToMarkdown(html) {
+      if (!html) return '';
+      let md = String(html);
+
+      // Convert blockquotes
+      md = md.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (m, c) => {
+        const clean = c.replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, '\n');
+        return '\n> ' + clean.trim().split('\n').map(l => l.trim()).filter(Boolean).join('\n> ') + '\n\n';
+      });
+
+      // Convert headings
+      md = md.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n# $1\n\n');
+      md = md.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n## $1\n\n');
+      md = md.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n### $1\n\n');
+
+      // Convert lists
+      md = md.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1');
+      md = md.replace(/<\/ul>|<\/ol>/gi, '\n\n');
+
+      // Formatting tags
+      md = md.replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, '**$2**');
+      md = md.replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, '*$2*');
+      md = md.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$2`');
+
+      // Paragraphs and linebreaks
+      md = md.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '\n$1\n\n');
+      md = md.replace(/<br\s*[\/]?>/gi, '\n');
+
+      // Strip any remaining markup tags
+      md = md.replace(/<[^>]+>/g, '');
+
+      // Entity decoding
+      md = md.replace(/&nbsp;/g, ' ')
+             .replace(/&amp;/g, '&')
+             .replace(/&lt;/g, '<')
+             .replace(/&gt;/g, '>')
+             .replace(/&quot;/g, '"')
+             .replace(/&#39;/g, "'");
+
+      return md.replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+  generatePageMarkdown(pageDef) {
+      if (!pageDef) return '';
+      const doc = pageDef.docClass ? pageDef.docClass() : null;
+      if (!doc) return '';
+
+      const meta = doc.getMeta ? doc.getMeta() : { title: pageDef.title };
+      const manifest = doc.manifest ? doc.manifest() : [];
+      const lines = [];
+
+      lines.push(`# ${meta.title || pageDef.title}`);
+      if (meta.kicker) lines.push(`*${meta.kicker}*`);
+      if (meta.subtitle) lines.push(`> *${meta.subtitle}*`);
+      lines.push('');
+
+      manifest.forEach((sec) => {
+        if (sec.title) {
+          lines.push(`## ${sec.title}`);
+          if (sec.partLabel) lines.push(`*${sec.partLabel}*`);
+          lines.push('');
+        }
+
+        (sec.blocks || []).forEach((b) => {
+          // 1. Check in-situ overrides
+          let blockText = null;
+          if (this.documentEditor) {
+            const ov = this.documentEditor.getOverride(pageDef.id, b.id, this.options.dossierId || this.brandTitle);
+            if (ov) blockText = Array.isArray(ov.text) ? ov.text.join('\n\n') : ov.text;
+          }
+
+          // 2. Component blocks
+          if (b.type === 'component') {
+            if (b.component === 'ParadigmsComparisonComponent') {
+              lines.push(`### Architectural Comparison Matrix: Shapiro vs. Mostaque vs. Brown`);
+              lines.push(`| Dimension | David Shapiro (PLE) | Emad Mostaque (UBAI) | Rob Brown (Robot Dividend) |`);
+              lines.push(`|---|---|---|---|`);
+              lines.push(`| 1. Wealth Grounding | Capital equity & leverage titles | Compute utility cycles & open weights | Physical consumable output & energy |`);
+              lines.push(`| 2. Tax Solution | Capital returns & resource funds | Compute vouchers replace cash UBI | Dual-Pillar VAT + corporate cash-flow levy + LVT |`);
+              lines.push(`| 3. Strategic Leverage | Rentier state veto & strike threat | Decentralized open-source weights | Realization Trap: domestic capital needs solvent buyers |`);
+              lines.push(`| 4. Human Agency | Stakeholder portfolio manager | Daily compute prompt-hustling | Unconditional physical freedom & voluntary vocation |`);
+              lines.push(`| 5. Systemic Failure Mode | Financialization & phantom leverage | Caloric disconnect (cannot eat FLOPs) | Attribution lag bounded by Corridor [T_min, T_max] |`);
+              lines.push('');
+              return;
+            } else if (b.component === 'DoomerDebateComponent') {
+              lines.push(`### The Escalation Ladder & Real-World Quora Debate`);
+              lines.push(`1. **The Scarcity Reflex:** Machines produce the grain; starving beside silos is an accounting refusal, not physical scarcity.`);
+              lines.push(`2. **The 50-Year Wage Argument:** An employed electorate votes on income tax; an automated electorate facing 25% displacement votes to distribute the machine harvest.`);
+              lines.push(`3. **The Tyranny Fantasy:** Oligarchs do not enforce laws. Soldiers and police have families facing the exact same replacement.`);
+              lines.push(`4. **The Competitive Trap:** Firms automate to survive, but capital collectively collapses without solvent consumers.`);
+              lines.push(`5. **The Status Fallacy:** Wealth is a human status game. Ruling an empty wasteland surrounded by androids is solitary confinement.`);
+              lines.push('');
+              return;
+            } else if (b.component === 'TaxChartComponent') {
+              lines.push(`### Democratic Tax Curve & Citizen Dividend Simulator`);
+              lines.push(`- **Total Collection Rate (Dial T):** Balances public dividend size with capital reinvestment and infrastructure upkeep.`);
+              lines.push(`- **Progressivity Index (Dial P):** Above 30%, generates automatic negative income tax credits for lower brackets.`);
+              lines.push(`- **Marginal Return Guarantee:** Effective marginal rates remain well below 100%, preserving positive incentive for specialized voluntary craft.`);
+              lines.push('');
+              return;
+            }
+          }
+
+          // 3. Markdown box
+          if (b.type === 'markdown-box' && typeof doc.getMasterMarkdown === 'function') {
+            lines.push(doc.getMasterMarkdown());
+            lines.push('');
+            return;
+          }
+
+          // 4. Resolve block content
+          if (!blockText) {
+            const htmlContent = this.resolveHtmlBlockContent(pageDef.id, b.id);
+            if (htmlContent) {
+              blockText = this._htmlToMarkdown(htmlContent);
+            } else if (typeof doc[b.id] === 'function') {
+              const rawVal = doc[b.id]();
+              const arr = Array.isArray(rawVal) ? rawVal : [rawVal];
+              blockText = arr.map(item => this._htmlToMarkdown(item)).join('\n\n');
+            }
+          }
+
+          if (!blockText) return;
+
+          if (b.type === 'quote') {
+            lines.push(`> "${blockText.trim()}"`);
+            lines.push('');
+          } else if (b.type === 'sidebar') {
+            const title = b.title || 'Note';
+            const kicker = b.kicker ? `${b.kicker}: ` : '';
+            lines.push(`> **${kicker}${title}**`);
+            lines.push(`>`);
+            const indented = blockText.trim().split('\n').map(l => `> ${l}`).join('\n');
+            lines.push(indented);
+            lines.push('');
+          } else {
+            lines.push(blockText.trim());
+            lines.push('');
+          }
+        });
+      });
+
+      return lines.join('\n');
+    }
+
+  generateFullMarkdown() {
+      const chapters = [];
+      this.pages.forEach((pageDef) => {
+        const pageMd = this.generatePageMarkdown(pageDef);
+        if (pageMd && pageMd.trim()) {
+          chapters.push(pageMd.trim());
+        }
+      });
+      return chapters.join('\n\n---\n\n');
     }
 }
 
