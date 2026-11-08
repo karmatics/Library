@@ -185,16 +185,27 @@ class VideoPlayer {
   }
 
   onPlayerReady(event) {
-    this.isReady = true;
-    if (this.options.playerType === 'youtube' && event.target) {
-      this.playbackRate = event.target.getPlaybackRate();
-    } else if (this.options.playerType === 'html5' && this.player) {
-      this.playbackRate = this.player.playbackRate;
+      this.isReady = true;
+      if (this.options.playerType === 'youtube' && event.target) {
+        this.playbackRate = event.target.getPlaybackRate();
+        const desiredVol = this.expectedVolume !== undefined ? this.expectedVolume : 100;
+        if (desiredVol > 0 && typeof event.target.isMuted === 'function' && event.target.isMuted()) {
+          if (typeof event.target.unMute === 'function') event.target.unMute();
+        }
+        if (typeof event.target.setVolume === 'function') {
+          event.target.setVolume(desiredVol);
+        }
+      } else if (this.options.playerType === 'html5' && this.player) {
+        this.playbackRate = this.player.playbackRate;
+        const desiredVol = this.expectedVolume !== undefined ? this.expectedVolume : 100;
+        if (desiredVol > 0 && this.player.muted) {
+          this.player.muted = false;
+        }
+        this.player.volume = desiredVol / 100.0;
+      }
+      this._startVolumeTracker();
+      this._emitState({ type: 'ready', player: this, data: event });
     }
-    this._startVolumeTracker();
-    this._emitState({ type: 'ready', player: this, data: event });
-  }
-
   onPlayerStateChange(event) {
     if (!this.player) return;
 
@@ -485,46 +496,47 @@ class VideoPlayer {
   }
 
   setVolume(level) {
-    if (!this.player || !this.isReady) return;
-    const clampedLevel = Math.max(0, Math.min(level, 100));
-    
-    console.log(`[Volume] User intentionally set volume to ${clampedLevel}`);
-    this.expectedVolume = clampedLevel;
+      if (!this.player || !this.isReady) return;
+      const clampedLevel = Math.max(0, Math.min(level, 100));
 
-    try {
-      if (this.options.playerType === 'youtube') {
-        if (this.player && typeof this.player.setVolume === 'function') {
-          this.player.setVolume(clampedLevel);
+      this.expectedVolume = clampedLevel;
+
+      try {
+        if (this.options.playerType === 'youtube') {
+          if (this.player && typeof this.player.setVolume === 'function') {
+            this.player.setVolume(clampedLevel);
+            if (clampedLevel > 0 && typeof this.player.isMuted === 'function' && this.player.isMuted()) {
+              if (typeof this.player.unMute === 'function') this.player.unMute();
+            }
+          }
+        } else {
+          this.player.volume = clampedLevel / 100.0;
+          if (clampedLevel > 0 && this.player.muted) {
+            this.player.muted = false;
+          }
         }
-      } else {
-        this.player.volume = clampedLevel / 100.0;
-      }
-    } catch (e) {}
-  }
+      } catch (e) {}
+    }
 
   getVolume() {
-    // Return level 0-100
-    if (!this.player || !this.isReady) return 100;
-    try {
-      if (this.options.playerType === 'youtube') {
-        if (this.player && typeof this.player.getVolume === 'function') {
-          return this.player.getVolume();
+      if (!this.player || !this.isReady) return this.expectedVolume ?? 100;
+      try {
+        if (this.options.playerType === 'youtube') {
+          if (this.player && typeof this.player.isMuted === 'function' && this.player.isMuted()) {
+            return 0;
+          }
+          if (this.player && typeof this.player.getVolume === 'function') {
+            return this.player.getVolume();
+          }
+          return this.expectedVolume ?? 100;
         } else {
-          console.error(
-            'VideoPlayer: YT player missing or getVolume not ready.'
-          );
-          return 100;
+          if (this.player.muted) return 0;
+          return Math.round(this.player.volume * 100);
         }
-      } else {
-        // HTML5
-        return Math.round(this.player.volume * 100);
+      } catch (e) {
+        return this.expectedVolume ?? 100;
       }
-    } catch (e) {
-      console.error('VideoPlayer: Error getting volume', e);
-      return 100;
     }
-  }
-
   mute() {
     if (!this.player || !this.isReady) return;
     try {
@@ -757,15 +769,18 @@ class VideoPlayer {
   }
 
   _startVolumeTracker() {
-    if (this._volPoller) return;
-    this.expectedVolume = this.getVolume();
-    this._volPoller = setInterval(() => {
-      if (!this.isReady || !this.player) return;
-      const currentVol = this.getVolume();
-      if (currentVol !== undefined && currentVol !== this.expectedVolume) {
-        console.log(`[Volume] Volume was changed externally (e.g. by YouTube control) from ${this.expectedVolume} to ${currentVol}`);
-        this.expectedVolume = currentVol;
-      }
-    }, 1000);
-  }
+      if (this._volPoller) return;
+      this.expectedVolume = this.getVolume();
+      this._volPoller = setInterval(() => {
+        if (!this.isReady || !this.player) return;
+        const currentVol = this.getVolume();
+        if (currentVol !== undefined && currentVol !== this.expectedVolume && this.expectedVolume !== undefined) {
+          if (currentVol === 0 && this.expectedVolume > 0 && this.isPlaying()) {
+            this.setVolume(this.expectedVolume);
+            return;
+          }
+          this.expectedVolume = currentVol;
+        }
+      }, 1000);
+    }
 }
