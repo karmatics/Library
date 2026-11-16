@@ -13,61 +13,61 @@ class GlowingTooltip {
     }
 
     _createElements() {
-      this.element = makeElement('div', {
-        style: {
-          position: 'absolute',
-          zIndex: 1000000001,
-          pointerEvents: 'none',
-          opacity: '0',
-          transition: 'opacity 0.15s ease-out',
-        },
-      });
-      this.textElement = makeElement('div', {
-        style: {
-          position: 'relative',
-          zIndex: 1,
-          textShadow: '0 0 3px black, 0 0 3px black, 0 0 3px black',
-          textAlign: 'center',
-        },
-      });
+        const mk = makeElement || globalThis.makeElement || window.makeElement;
+        this.element = mk('div', {
+          style: {
+            position: 'absolute',
+            zIndex: 1000000001,
+            pointerEvents: 'none',
+            opacity: '0',
+            transition: 'opacity 0.15s ease-out',
+          },
+        });
+        this.textElement = mk('div', {
+          style: {
+            position: 'relative',
+            zIndex: 1,
+            textShadow: '0 0 3px black, 0 0 3px black, 0 0 3px black',
+            textAlign: 'center',
+          },
+        });
 
-      const glowFilterId = `glow-blur-${Math.random().toString(36).substr(2, 9)}`;
-      const coreFilterId = `core-blur-${Math.random().toString(36).substr(2, 9)}`;
-      this.glowBlurFilter = makeElement('svg:feGaussianBlur');
-      this.coreBlurFilter = makeElement('svg:feGaussianBlur');
+        const glowFilterId = `glow-blur-${Math.random().toString(36).substr(2, 9)}`;
+        const coreFilterId = `core-blur-${Math.random().toString(36).substr(2, 9)}`;
+        this.glowBlurFilter = mk('svg:feGaussianBlur');
+        this.coreBlurFilter = mk('svg:feGaussianBlur');
 
-      this.path_bg = makeElement('svg:path');
-      this.path_glow = makeElement('svg:path', {
-        filter: `url(#${glowFilterId})`,
-      });
-      this.path_core = makeElement('svg:path', {
-        filter: `url(#${coreFilterId})`,
-      });
+        this.path_bg = mk('svg:path');
+        this.path_glow = mk('svg:path', {
+          filter: `url(#${glowFilterId})`,
+        });
+        this.path_core = mk('svg:path', {
+          filter: `url(#${coreFilterId})`,
+        });
 
-      this.pathGroup = makeElement(
-        'svg:g',
-        {},
-        this.path_bg,
-        this.path_glow,
-        this.path_core
-      );
+        this.pathGroup = mk(
+          'svg:g',
+          {},
+          this.path_bg,
+          this.path_glow,
+          this.path_core
+        );
 
-      this.svgElement = makeElement(
-        'svg:svg',
-        { style: { position: 'absolute', top: 0, left: 0, overflow: 'visible' } },
-        [
-          makeElement('svg:defs', {}, [
-            makeElement('svg:filter', { id: glowFilterId }, this.glowBlurFilter),
-            makeElement('svg:filter', { id: coreFilterId }, this.coreBlurFilter),
-          ]),
-        ],
-        this.pathGroup
-      );
+        this.svgElement = mk(
+          'svg:svg',
+          { style: { position: 'absolute', top: 0, left: 0, overflow: 'visible' } },
+          [
+            mk('svg:defs', {}, [
+              mk('svg:filter', { id: glowFilterId }, this.glowBlurFilter),
+              mk('svg:filter', { id: coreFilterId }, this.coreBlurFilter),
+            ]),
+          ],
+          this.pathGroup
+        );
 
-      this.element.appendChild(this.svgElement);
-      this.element.appendChild(this.textElement);
-    }
-
+        this.element.appendChild(this.svgElement);
+        this.element.appendChild(this.textElement);
+      }
     update(options) {
       Object.assign(this.options, options);
 

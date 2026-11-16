@@ -100,11 +100,13 @@ class CadPlanItemNotes {
 
       return localNotes;
     }
-  static async getNotesForBlock(pageId, blockId, dossierId = 'HomeSetup') {
-      const key = `${dossierId}:${pageId}:${blockId}`;
-      const all = await this.getAllNotes(dossierId);
-      return all.filter(n => n.key === key || (n.pageId === pageId && n.blockId === blockId));
-    }
+
+  static async getNotesForBlock(pageId, blockId, dossierId = null) {
+        const resolvedDossier = this._resolveDossierId(dossierId);
+        const key = `${resolvedDossier}:${pageId}:${blockId}`;
+        const all = await this.getAllNotes(resolvedDossier);
+        return all.filter(n => n.key === key || (n.pageId === pageId && n.blockId === blockId));
+      }
   static async getAnnotatedBlocks() {
     const all = await this.getAllNotes();
     const active = all.filter(n => n.status !== 'resolved');
@@ -124,51 +126,51 @@ class CadPlanItemNotes {
   }
 
   static async addNote(pageId, blockId, text, options = {}) {
-      if (!text || !text.trim()) return null;
-      const dossierId = options.dossierId || 'HomeSetup';
-      const key = `${dossierId}:${pageId}:${blockId}`;
-      const id = 'note_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+          if (!text || !text.trim()) return null;
+          const dossierId = this._resolveDossierId(options.dossierId);
+          const key = `${dossierId}:${pageId}:${blockId}`;
+          const id = 'note_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
-      const entry = {
-        id,
-        key,
-        blockKey: `${pageId}:${blockId}`,
-        pageId,
-        blockId,
-        dossierId,
-        text: text.trim(),
-        timestamp: Date.now(),
-        status: options.status || 'active',
-        author: options.author || (options.isLLM ? 'LLM' : 'Author'),
-        isLLM: Boolean(options.isLLM || options.author === 'LLM'),
-        type: options.type || (options.isLLM ? 'proposal' : 'note'),
-        proposedPatch: options.proposedPatch || null,
-        proposedText: options.proposedText || null,
-        videoLink: options.videoLink || null,
-        blockPreview: options.blockPreview || '',
-        xpath: options.xpath || null,
-        cssPath: options.cssPath || null,
-        tagName: options.tagName || null,
-        isUniversalElement: Boolean(options.xpath || options.isUniversalElement)
-      };
+          const entry = {
+            id,
+            key,
+            blockKey: `${pageId}:${blockId}`,
+            pageId,
+            blockId,
+            enclosingBlockId: options.enclosingBlockId || null,
+            dossierId,
+            text: text.trim(),
+            timestamp: Date.now(),
+            status: options.status || 'active',
+            author: options.author || (options.isLLM ? 'LLM' : 'Author'),
+            isLLM: Boolean(options.isLLM || options.author === 'LLM'),
+            type: options.type || (options.isLLM ? 'proposal' : 'note'),
+            proposedPatch: options.proposedPatch || null,
+            proposedText: options.proposedText || null,
+            videoLink: options.videoLink || null,
+            blockPreview: options.blockPreview || '',
+            xpath: options.xpath || null,
+            cssPath: options.cssPath || null,
+            tagName: options.tagName || null,
+            isUniversalElement: Boolean(options.xpath || options.isUniversalElement)
+          };
 
-      const map = this.getLocalMap();
-      map[key] = map[key] || [];
-      map[key].push(entry);
-      this.saveLocalMap(map);
+          const map = this.getLocalMap();
+          map[key] = map[key] || [];
+          map[key].push(entry);
+          this.saveLocalMap(map);
 
-      const db = await this.getDB();
-      if (db) {
-        try {
-          const tx = db.transaction(this.STORE_NAME, 'readwrite');
-          tx.objectStore(this.STORE_NAME).put(entry);
-        } catch (err) {}
-      }
+          const db = await this.getDB();
+          if (db) {
+            try {
+              const tx = db.transaction(this.STORE_NAME, 'readwrite');
+              tx.objectStore(this.STORE_NAME).put(entry);
+            } catch (err) {}
+          }
 
-      this._notify();
-      return entry;
-    }
-
+          this._notify();
+          return entry;
+        }
   static async updateNote(noteId, updates) {
       const all = await this.getAllNotes();
       const note = all.find(n => n.id === noteId);
@@ -232,665 +234,930 @@ class CadPlanItemNotes {
   }
 
   static async buildNotesDirectivePrompt(docReader = null) {
-        const dossierId = docReader?.options?.dossierId || docReader?.brandTitle || 'HomeSetup';
-        const all = await this.getAllNotes(dossierId);
-        const active = all.filter(n => n.status !== 'resolved');
-        if (active.length === 0) {
-          return `# NO ACTIVE LIVING SPEC DIRECTIVES\nThere are currently no active author notes or revision directives attached in the living dossier [${dossierId}].`;
-        }
+          const reader = docReader || globalThis._activeDocumentReader || null;
+          const dossierId = this._resolveDossierId(reader?.options?.dossierId, reader);
+          const all = await this.getAllNotes(dossierId);
+          const active = all.filter(n => n.status !== 'resolved');
 
-        let out = `# 🎯 LIVING SPECIFICATION EVOLUTION: AUTHOR DIRECTIVES & UNIVERSAL ANNOTATIONS\n`;
-        out += `**Dossier:** ${dossierId} • **Generated:** ${new Date().toISOString()} • **Author/Inventor:** Rob Brown\n`;
-        out += `**Active Directives:** ${active.length} notes across ${new Set(active.map(n => n.blockKey)).size} locations\n`;
-        out += '**Execution Directive:** Incorporate the following author directives directly into the specified source files and class methods. Keep all existing verified mathematics, direction cosines, and repository connections fully intact.\n\n';
-        out += '---\n\n';
-
-        const grouped = {};
-        active.forEach(n => {
-          grouped[n.blockKey] = grouped[n.blockKey] || [];
-          grouped[n.blockKey].push(n);
-        });
-
-        const componentClassMap = {
-          comp_tentative_snapping_lab: { cls: 'TentativeSnappingLab', file: 'HomeSetup/js/TentativeSnappingLab.js', desc: 'Interactive Snapping Lab (50ms chorded clicks & thick picking)' },
-          comp_nearest_intersection_lab: { cls: 'CadNearestIntersectionLab', file: 'HomeSetup/js/CadNearestIntersectionLab.js', desc: 'Nearest Snap ("N") Ray-Arc Quadratic Intersection Lab' },
-          comp_surface_normal_lab: { cls: 'CadSurfaceNormalLab', file: 'HomeSetup/js/CadSurfaceNormalLab.js', desc: 'Surface Normal Alignment ("Q") & Reset Reversion Lab' },
-          comp_smart_keyin_lab: { cls: 'CadSmartKeyinLab', file: 'HomeSetup/js/CadSmartKeyinLab.js', desc: 'SmartKeyin Sign Inference & Smart Backspace Sandbox' },
-          comp_tangent_arc_swing_lab: { cls: 'CadTangentArcSwingLab', file: 'HomeSetup/js/CadTangentArcSwingLab.js', desc: 'Closest-Point Sweep Principle & Tangent Arc Swing Studio' },
-          comp_transform_gym: { cls: 'CadTransformGymLab', file: 'HomeSetup/js/CadTransformGymLab.js', desc: '3-Point Transform Lab (Move, Rotate, Scale, and live ghosting)' },
-          comp_zplane_gym: { cls: 'CadZPlaneElevationLab', file: 'HomeSetup/js/CadZPlaneElevationLab.js', desc: 'Z-Elevation & Construction Slicing Plane Lab' },
-          comp_3d_smartline_lab: { cls: 'Cad3DSmartLineLab', file: 'HomeSetup/js/Cad3DSmartLineLab.js', desc: '3D SmartLine & iTwin ThreeAxes Studio' },
-          comp_model_studio: { cls: 'CadModelStudioComponent', file: 'HomeSetup/js/CadModelStudioComponent.js', desc: '3D Model Studio (PBR materials, GLB loading & face snapping [Q])' },
-          comp_cad_studio_demo: { cls: 'CadStudioDemoComponent', file: 'HomeSetup/js/CadStudioDemoComponent.js', desc: 'Production Studio (Live accuCad iframe & 3D parallax curves)' },
-          comp_code_viewer: { cls: 'CadCodeViewerComponent', file: 'HomeSetup/js/CadCodeViewerComponent.js', desc: 'Code Viewer & Rust Crate Hooks' },
-          comp_svg_smartline_lab: { cls: 'SvgSmartLineLab', file: 'HomeSetup/js/SvgSmartLineLab.js', desc: 'Pure SVG SmartLine Lab (Continuous chaining, tangent arcs & DXF bulges)' },
-          comp_animated_svg_compass: { cls: 'CadAnimatedSvgCompassLab', file: 'HomeSetup/js/CadAnimatedSvgCompassLab.js', desc: 'Animated SVG Compass Lab (Superellipse morphing & Mini-Jack)' },
-          comp_isolated_compass_3d: { cls: 'CadIsolatedCompass3DComponent', file: 'HomeSetup/js/CadIsolatedCompass3DComponent.js', desc: 'Isolated 3D Compass Viewport (High-contrast direction cosines)' },
-          comp_agent_telemetry_lab: { cls: 'CadAgentTelemetryLab', file: 'HomeSetup/js/CadAgentTelemetryLab.js', desc: 'Autonomous AI Drafting Lab (MCP stream & relative vectors)' },
-          comp_roundtrip_superpower: { cls: 'Cad2Dto3DRoundTripGraphic', file: 'HomeSetup/js/Cad2Dto3DRoundTripGraphic.js', desc: '2D OCS to 3D WCS Round-Trip Engine (AutoCAD compatibility)' },
-          comp_kch_interactive_lab: { cls: 'KeyCommandInteractiveLab', file: 'HomeSetup/js/KeyCommandInteractiveLab.js', desc: 'Single-Stroke Key Command Engine Sandbox' },
-          comp_curve_drawer_lab: { cls: 'CurveDrawerLabComponent', file: 'HomeSetup/js/CurveDrawerLabComponent.js', desc: 'On-Curve Spline Relaxation & Kinetic Tether Lab' },
-          comp_number_stream_lab: { cls: 'AccuDrawNumberStreamLab', file: 'HomeSetup/js/AccuDrawNumberStreamLab.js', desc: 'Numerical Command Stream & Decimal Parser' },
-          comp_compass_anatomy: { cls: 'CompassAnatomyComponent', file: 'HomeSetup/js/CompassAnatomyComponent.js', desc: 'The Squircle Compass Anatomical Deconstruction' },
-          comp_master_showcase: { cls: 'CadMasterShowcaseComponent', file: 'HomeSetup/js/CadMasterShowcaseComponent.js', desc: 'HomeSetup Master Showcase & Dual-Audience Engine' },
-          comp_touch_graphic: { cls: 'CadTouchP2PGraphicComponent', file: 'HomeSetup/js/CadTouchP2PGraphicComponent.js', desc: 'Two-Handed CAD Architecture & TouchController Graphic' },
-          comp_vision_hero: { cls: 'CadVisionHeroGraphic', file: 'HomeSetup/js/CadVisionHeroGraphic.js', desc: 'The Expandable Dual-Mode CAD Engine Graphic' },
-          comp_audience_migration: { cls: 'CadAudienceMigrationGraphic', file: 'HomeSetup/js/CadAudienceMigrationGraphic.js', desc: 'Audience Capture & Vibe-Coding Flywheel Graphic' },
-          comp_plugin_hooks: { cls: 'CadPluginHookSpecGraphic', file: 'HomeSetup/js/CadPluginHookSpecGraphic.js', desc: 'The 3 Clean Upstream Hooks Plugin Spec Graphic' },
-          comp_freedom_graphic: { cls: 'CadErgonomicFreedomGraphic', file: 'HomeSetup/js/CadErgonomicFreedomGraphic.js', desc: 'Ergonomic Freedom & Composable Instruments Graphic' },
-          comp_coordinate_converter: { cls: 'CadCoordinateConverterLab', file: 'HomeSetup/js/CadCoordinateConverterLab.js', desc: 'Universal Arc & Coordinate Transformation Engine' },
-          comp_runtime_matrix: { cls: 'CadRuntimeMatrixGraphic', file: 'HomeSetup/js/CadRuntimeMatrixGraphic.js', desc: 'Execution Environment Matrix & Pipeline Decoupling' },
-          comp_ecosystem_graphic: { cls: 'CadEcosystemGraphicComponent', file: 'HomeSetup/js/CadEcosystemGraphicComponent.js', desc: 'Federated Multi-App Topology Map' },
-          comp_architecture_graphic: { cls: 'CadArchitectureGraphicComponent', file: 'HomeSetup/js/CadArchitectureGraphicComponent.js', desc: '4-Layer Headless Geometric Kernel Stack' },
-          comp_origins_graphic: { cls: 'CadOriginsGraphicComponent', file: 'HomeSetup/js/CadOriginsGraphicComponent.js', desc: '1995 Milestone & 3D Design Cube Graphic' }
-        };
-
-        const pageClassMap = {
-          meta: { cls: 'CadPlanMetaContent', file: 'HomeSetup/js/CadPlanMetaContent.js' },
-          origins: { cls: 'CadOriginsContent', file: 'HomeSetup/js/CadOriginsContent.js' },
-          philosophy: { cls: 'AccuDrawPhilosophyContent', file: 'HomeSetup/js/AccuDrawPhilosophyContent.js' },
-          accucad: { cls: 'AccuCadAuditContent', file: 'HomeSetup/js/AccuCadAuditContent.js' },
-          shortcuts: { cls: 'KeyCommandEngineContent', file: 'HomeSetup/js/KeyCommandEngineContent.js' },
-          curvedrawer: { cls: 'CadCurveDrawerContent', file: 'HomeSetup/js/CadCurveDrawerContent.js' },
-          touchp2p: { cls: 'CadTouchP2PContent', file: 'HomeSetup/js/CadTouchP2PContent.js' },
-          demos: { cls: 'CadInteractiveDemoContent', file: 'HomeSetup/js/CadInteractiveDemoContent.js' },
-          ecosystem: { cls: 'CadLunoEcosystemContent', file: 'HomeSetup/js/CadLunoEcosystemContent.js' },
-          architecture: { cls: 'CadArchitectureDecisionsContent', file: 'HomeSetup/js/CadArchitectureDecisionsContent.js' },
-          cadcraft: { cls: 'CadCraftIntegrationContent', file: 'HomeSetup/js/CadCraftIntegrationContent.js' },
-          itwin: { cls: 'CadITwinParityContent', file: 'HomeSetup/js/CadITwinParityContent.js' },
-          interview: { cls: 'CadVisionInterviewContent', file: 'HomeSetup/js/CadVisionInterviewContent.js' }
-        };
-
-        let itemNumber = 1;
-
-        for (const [key, notes] of Object.entries(grouped)) {
-          const [pageId, blockId] = key.split(':');
-          const isComponent = Boolean(componentClassMap[blockId] || blockId.startsWith('comp_'));
-          const isUniversal = Boolean(notes[0]?.isUniversalElement || notes[0]?.xpath);
-
-          let targetCls = '';
-          let targetFile = '';
-          let targetDesc = '';
-          let previewText = '';
-
-          if (isComponent && componentClassMap[blockId]) {
-            targetCls = componentClassMap[blockId].cls;
-            targetFile = componentClassMap[blockId].file;
-            targetDesc = componentClassMap[blockId].desc;
-          } else {
-            const mapping = pageClassMap[pageId] || {
-              cls: pageId.charAt(0).toUpperCase() + pageId.slice(1) + 'Content',
-              file: `${dossierId}/js/${pageId.charAt(0).toUpperCase() + pageId.slice(1)}Content.js`
-            };
-            targetCls = mapping.cls;
-            targetFile = mapping.file;
-
-            const docCls = globalThis[targetCls];
-            if (docCls && typeof docCls[blockId] === 'function') {
-              const val = docCls[blockId]();
-              previewText = Array.isArray(val) ? val.join('\n\n') : String(val);
-            }
-          }
-
-          if (!previewText && notes[0]?.blockPreview) {
-            previewText = notes[0].blockPreview;
-          }
-
-          out += `## ${itemNumber++}. Target: \`${targetCls}${isComponent ? '' : '.' + blockId}\`\n`;
-          out += `**Target File:** \`${targetFile}\`\n`;
-          if (targetDesc) out += `**Component Role:** *${targetDesc}*\n`;
-
-          if (isUniversal && notes[0]?.xpath) {
-            out += `**DOM XPath Locator:** \`${notes[0].xpath}\`\n`;
-            if (notes[0].cssPath) out += `**CSS Selector:** \`${notes[0].cssPath}\`\n`;
-          }
-          out += '\n';
-
-          if (previewText) {
-            out += '### Context / Code Excerpt:\n';
-            out += '> ' + previewText.replace(/\n+/g, '\n> ') + '\n\n';
-          }
-
-          out += '### Author Directives & Living Annotations:\n';
-          notes.sort((a, b) => a.timestamp - b.timestamp).forEach((note, idx) => {
-            const timeStr = new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const cleanTag = note.status === 'pending_cleanup' ? ' `[🧹 MARKED FOR ARCHIVE]`' : '';
-            out += `${idx + 1}. **(${timeStr})${cleanTag}:** ${note.text}\n`;
-            if (note.videoLink) {
-              out += `   - 📹 *Video Anchor:* \`${note.videoLink.videoId}\` @ **${note.videoLink.time}s** (${note.videoLink.label || 'Timestamp'})\n`;
-            }
-          });
-          out += '\n';
-
-          out += '### Expected Implementation Output Container:\n';
-          out += '<' + `script data-file="${targetFile}" data-method="${targetCls}.${isComponent ? 'render' : blockId}" data-action="patch">\n`;
-          out += `// Updated implementation incorporating author directives...\n`;
-          out += '<' + '/script>\n\n';
-          out += '---\n\n';
-        }
-
-        return out.trim();
-      }
-  static async openPromptBuilderDialog(docReader = null) {
-      const hostContainer = document.body;
-      const promptText = await this.buildNotesDirectivePrompt(docReader);
-      const dossierId = docReader?.options?.dossierId || docReader?.brandTitle || 'HomeSetup';
-      const allNotes = await this.getAllNotes(dossierId);
-      const activeNotes = allNotes.filter(n => n.status !== 'resolved');
-
-      const wrap = makeElement('div', {
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          height: '100%',
-          color: '#e2e8f0',
-          fontFamily: 'var(--dr-font-sans, system-ui, sans-serif)'
-        }
-      });
-
-      const topBar = makeElement('div', {
-        style: {
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '6px 4px',
-          borderBottom: '1px solid #232d3f',
-          fontSize: '11.5px',
-          fontFamily: 'monospace'
-        }
-      }, [
-        makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold' } }, `⚡ Active Living Directives [${dossierId}]: ${activeNotes.length}`),
-        makeElement('span', { style: { color: '#10b981' } }, 'Connected to Luno Outbox')
-      ]);
-      wrap.appendChild(topBar);
-
-      const desc = makeElement('div', {
-        style: {
-          fontSize: '11px',
-          color: '#94a3b8',
-          lineHeight: '1.4',
-          background: 'rgba(0, 242, 254, 0.05)',
-          padding: '8px 12px',
-          borderRadius: '6px',
-          border: '1px solid rgba(0, 242, 254, 0.2)'
-        }
-      }, 'Packages all notes, universal element XPath locators, and code contexts into a compilable payload. Dispatches directly to Luno Outbox, saves to disk via Node.js server save, or copies to clipboard.');
-      wrap.appendChild(desc);
-
-      const codeArea = makeElement('textarea', {
-        style: {
-          flex: 1,
-          minHeight: '320px',
-          background: '#090d16',
-          color: '#7ee787',
-          border: '1.5px solid #232d3f',
-          borderRadius: '8px',
-          padding: '12px',
-          fontFamily: 'var(--dr-font-mono, monospace)',
-          fontSize: '12px',
-          lineHeight: '1.5',
-          resize: 'vertical',
-          outline: 'none',
-          whiteSpace: 'pre'
-        },
-        readonly: true,
-        spellcheck: false
-      });
-      codeArea.value = promptText;
-      wrap.appendChild(codeArea);
-
-      const footer = makeElement('div', {
-        style: {
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingTop: '8px',
-          borderTop: '1px solid #232d3f',
-          gap: '8px',
-          flexWrap: 'wrap'
-        }
-      });
-
-      const leftButtons = makeElement('div', { style: { display: 'flex', gap: '8px' } }, [
-        makeElement('button', {
-          className: 'dr-nav-btn',
-          style: { color: '#f59e0b', borderColor: '#f59e0b66', fontSize: '11px' },
-          onclick: async () => {
-            if (confirm(`Archive/mark all ${activeNotes.length} active notes in [${dossierId}] as incorporated?`)) {
-              for (const n of activeNotes) {
-                await CadPlanItemNotes.updateNote(n.id, { status: 'resolved' });
-              }
-              alert(`✓ Directives for [${dossierId}] archived.`);
-              dlg.close();
-              if (docReader && typeof docReader._updateBlockNoteBadges === 'function') {
-                docReader._updateBlockNoteBadges();
-              }
-            }
-          }
-        }, '🧹 Mark Incorporated')
-      ]);
-
-      const rightButtons = makeElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, [
-        // 1. Push to Real Luno Outbox
-        makeElement('button', {
-          className: 'dr-nav-btn',
-          style: { background: '#271052', color: '#d2a8ff', borderColor: '#8257e5', fontSize: '11px', fontWeight: 'bold' },
-          onclick: () => {
-            const res = CadPlanItemNotes.dispatchToOutbox(`${dossierId} Living Spec Directives`, promptText);
-            if (res.channel === 'clipboard-fallback') {
-              alert('✓ Copied evolution prompt to clipboard (OutboxQueue not mounted in parent).');
-            } else {
-              alert(`✓ Dispatched evolution prompt directly to Luno Outbox via [${res.channel}]!`);
-            }
-            dlg.close();
-          }
-        }, '📤 Push to Outbox'),
-
-        // 2. Direct In-Page / Server Save
-        makeElement('button', {
-          className: 'dr-nav-btn',
-          style: { background: '#0a233a', color: '#38bdf8', borderColor: '#0284c7', fontSize: '11px' },
-          onclick: async () => {
-            const dumpPath = `PromptDumps/${dossierId}_EvolutionDirectives.md`;
-            let savedSuccessfully = false;
-
-            try {
-              const res = await fetch(`/api/save?project=${encodeURIComponent(dossierId)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  files: [{ path: dumpPath, content: promptText }]
-                })
-              });
-              const data = await res.json();
-              if (data && data.success) savedSuccessfully = true;
-            } catch (e) {}
-
-            if (savedSuccessfully) {
-              alert(`✓ Written directly to local disk at ${dumpPath}!`);
-              dlg.close();
-            } else {
-              const blob = new Blob([promptText], { type: 'text/markdown' });
-              const url = URL.createObjectURL(blob);
-              const a = makeElement('a', { href: url, download: `${dossierId}_Directives_${Date.now()}.md` });
-              a.click();
-              URL.revokeObjectURL(url);
-              dlg.close();
-            }
-          }
-        }, '⚡ Save to Disk'),
-
-        // 3. Copy to Clipboard
-        makeElement('button', {
-          className: 'dr-nav-btn primary',
-          style: { fontWeight: 'bold' },
-          onclick: (e) => {
-            const btn = e.currentTarget;
-            navigator.clipboard.writeText(promptText).then(() => {
-              btn.textContent = '✓ Copied!';
-              setTimeout(() => { btn.textContent = '📋 Copy Evolution Prompt'; }, 1800);
+          const DocEditor = globalThis.CadPlanDocumentEditor || globalThis.DocumentEditor;
+          const overrides = [];
+          if (DocEditor && typeof DocEditor.getOverridesMap === 'function') {
+            const oMap = DocEditor.getOverridesMap();
+            Object.values(oMap).forEach(ov => {
+              if ((ov?.dossierId || 'CadPlan') === dossierId) overrides.push(ov);
             });
           }
-        }, '📋 Copy Prompt')
-      ]);
 
-      footer.appendChild(leftButtons);
-      footer.appendChild(rightButtons);
-      wrap.appendChild(footer);
+          if (active.length === 0 && overrides.length === 0) {
+            return `# NO ACTIVE LIVING SPEC DIRECTIVES\nThere are currently no active author notes, element annotations, or in-situ edits attached in the living dossier [${dossierId}].`;
+          }
 
-      const dlg = UITools.makeDialog({
-        title: `⚡ Living Specification Evolution Deck [${dossierId}]`,
-        size: [660, 580],
-        position: [Math.max(20, (window.innerWidth - 660) / 2), 50],
-        contentElement: wrap,
-        appendTo: hostContainer
-      });
+          let out = `# 🎯 LIVING SPECIFICATION EVOLUTION: AUTHOR DIRECTIVES & UNIVERSAL ANNOTATIONS\n`;
+          out += `**Dossier:** ${dossierId} • **Generated:** ${new Date().toISOString()} • **Author/Inventor:** Rob Brown\n`;
+          out += `**Active Directives:** ${active.length} notes across ${new Set(active.map(n => n.blockKey)).size} locations • **In-Situ Text Revisions:** ${overrides.length}\n`;
+          out += '**Execution Directive:** Incorporate the following author directives and text revisions directly into the specified source files and class methods. Keep all existing verified mathematics, direction cosines, and repository connections fully intact.\n\n';
+          out += '---\n\n';
 
-      return dlg;
-    }
+          const grouped = {};
+          active.forEach(n => {
+            grouped[n.blockKey] = grouped[n.blockKey] || [];
+            grouped[n.blockKey].push(n);
+          });
+
+          const componentClassMap = {
+            comp_fleet_map: { cls: 'HomeFleetVisualizer', file: 'HomeSetup/js/HomeFleetVisualizer.js', desc: 'Interactive Fleet Topology Map' },
+            comp_handoff_deck: { cls: 'HomeHandoffComponent', file: 'HomeSetup/js/HomeHandoffComponent.js', desc: 'Master Opus Router & Fleet Git Synchronizer' },
+            comp_dictation_studio: { cls: 'HomeDictationStudioComponent', file: 'HomeSetup/js/HomeDictationStudioComponent.js', desc: 'Universal Speech & Dictation Studio' },
+            comp_tentative_snapping_lab: { cls: 'TentativeSnappingLab', file: 'CadPlan/js/TentativeSnappingLab.js', desc: 'Interactive Snapping Lab' },
+            comp_nearest_intersection_lab: { cls: 'CadNearestIntersectionLab', file: 'CadPlan/js/CadNearestIntersectionLab.js', desc: 'Nearest Snap Lab' },
+            comp_surface_normal_lab: { cls: 'CadSurfaceNormalLab', file: 'CadPlan/js/CadSurfaceNormalLab.js', desc: 'Surface Normal Lab' },
+            comp_smart_keyin_lab: { cls: 'CadSmartKeyinLab', file: 'CadPlan/js/CadSmartKeyinLab.js', desc: 'SmartKeyin Lab' },
+            comp_tangent_arc_swing_lab: { cls: 'CadTangentArcSwingLab', file: 'CadPlan/js/CadTangentArcSwingLab.js', desc: 'Tangent Arc Swing Studio' },
+            comp_transform_gym: { cls: 'CadTransformGymLab', file: 'CadPlan/js/CadTransformGymLab.js', desc: '3-Point Transform Lab' },
+            comp_zplane_gym: { cls: 'CadZPlaneElevationLab', file: 'CadPlan/js/CadZPlaneElevationLab.js', desc: 'Z-Elevation Lab' },
+            comp_3d_smartline_lab: { cls: 'Cad3DSmartLineLab', file: 'CadPlan/js/Cad3DSmartLineLab.js', desc: '3D SmartLine Studio' },
+            comp_model_studio: { cls: 'CadModelStudioComponent', file: 'CadPlan/js/CadModelStudioComponent.js', desc: '3D Model Studio' },
+            comp_cad_studio_demo: { cls: 'CadStudioDemoComponent', file: 'CadPlan/js/CadStudioDemoComponent.js', desc: 'Production Studio' },
+            comp_studio: { cls: 'QuoraStudioComponent', file: 'QuoraToys/js/QuoraStudioComponent.js', desc: 'Spot-The-Difference Comparator' },
+            comp_annotation: { cls: 'QuoraAnnotationComponent', file: 'QuoraToys/js/QuoraAnnotationComponent.js', desc: 'Universal Annotation & Vector Studio' },
+            comp_bookmarklet: { cls: 'QuoraBookmarkletComponent', file: 'QuoraToys/js/QuoraBookmarkletComponent.js', desc: 'In-Situ Bookmarklet Hub' },
+            comp_extension: { cls: 'QuoraExtensionComponent', file: 'QuoraToys/js/QuoraExtensionComponent.js', desc: 'Chrome Extension Cockpit' },
+            comp_archiver: { cls: 'QuoraArchiverComponent', file: 'QuoraToys/js/QuoraArchiverComponent.js', desc: 'Quora Answer Archiver' },
+            comp_opus_router: { cls: 'OpusRouterComponent', file: 'Opus/js/OpusRouterComponent.js', desc: 'Master Opus Knowledge Router' },
+            block_economic_impact: { cls: 'OpusEconomicImpactComponent', file: 'Opus/js/OpusEconomicImpactComponent.js', desc: 'Google Search Economic Impact Exhibit' },
+            comp_convergence_stepper: { cls: 'OpusConvergenceStepperLab', file: 'Opus/js/OpusConvergenceStepperLab.js', desc: '4-Turn Sifting Stepper' }
+          };
+
+          const dossierPageMaps = {
+            HomeSetup: {
+              topology: { cls: 'HomeTopologyContent', file: 'HomeSetup/js/HomeTopologyContent.js' },
+              network: { cls: 'HomeNetworkContent', file: 'HomeSetup/js/HomeNetworkContent.js' },
+              storage: { cls: 'HomeStorageContent', file: 'HomeSetup/js/HomeStorageContent.js' },
+              nodes: { cls: 'HomeNodesContent', file: 'HomeSetup/js/HomeNodesContent.js' },
+              orchestration: { cls: 'HomeOrchestrationContent', file: 'HomeSetup/js/HomeOrchestrationContent.js' },
+              secrets: { cls: 'HomeSecretsContent', file: 'HomeSetup/js/HomeSecretsContent.js' },
+              handoff: { cls: 'HomeHandoffContent', file: 'HomeSetup/js/HomeHandoffContent.js' },
+              dictation: { cls: 'HomeDictationContent', file: 'HomeSetup/js/HomeDictationContent.js' }
+            },
+            QuoraToys: {
+              studio: { cls: 'QuoraStudioContent', file: 'QuoraToys/js/QuoraToysContent.js' },
+              bookmarklet: { cls: 'QuoraBookmarkletContent', file: 'QuoraToys/js/QuoraToysContent.js' },
+              extension: { cls: 'QuoraExtensionContent', file: 'QuoraToys/js/QuoraToysContent.js' },
+              archiver: { cls: 'QuoraArchiverContent', file: 'QuoraToys/js/QuoraToysContent.js' },
+              vision: { cls: 'QuoraVisionContent', file: 'QuoraToys/js/QuoraToysContent.js' },
+              architecture: { cls: 'QuoraArchitectureContent', file: 'QuoraToys/js/QuoraToysContent.js' },
+              annotation: { cls: 'QuoraAnnotationContent', file: 'QuoraToys/js/QuoraToysContent.js' }
+            },
+            CadPlan: {
+              meta: { cls: 'CadPlanMetaContent', file: 'CadPlan/js/CadPlanMetaContent.js' },
+              origins: { cls: 'CadOriginsContent', file: 'CadPlan/js/CadOriginsContent.js' },
+              philosophy: { cls: 'AccuDrawPhilosophyContent', file: 'CadPlan/js/AccuDrawPhilosophyContent.js' },
+              accucad: { cls: 'AccuCadAuditContent', file: 'CadPlan/js/AccuCadAuditContent.js' },
+              shortcuts: { cls: 'KeyCommandEngineContent', file: 'CadPlan/js/KeyCommandEngineContent.js' },
+              curvedrawer: { cls: 'CadCurveDrawerContent', file: 'CadPlan/js/CadCurveDrawerContent.js' },
+              touchp2p: { cls: 'CadTouchP2PContent', file: 'CadPlan/js/CadTouchP2PContent.js' },
+              demos: { cls: 'CadInteractiveDemoContent', file: 'CadPlan/js/CadInteractiveDemoContent.js' },
+              ecosystem: { cls: 'CadLunoEcosystemContent', file: 'CadPlan/js/CadLunoEcosystemContent.js' },
+              architecture: { cls: 'CadArchitectureDecisionsContent', file: 'CadPlan/js/CadArchitectureDecisionsContent.js' },
+              cadcraft: { cls: 'CadCraftIntegrationContent', file: 'CadPlan/js/CadCraftIntegrationContent.js' },
+              itwin: { cls: 'CadITwinParityContent', file: 'CadPlan/js/CadITwinParityContent.js' },
+              interview: { cls: 'CadVisionInterviewContent', file: 'CadPlan/js/CadVisionInterviewContent.js' }
+            },
+            situation: {
+              overview: { cls: 'OverviewPage', file: 'situation/js/OverviewPage.js' },
+              'elder-advocacy': { cls: 'ElderAdvocacyPage', file: 'situation/js/ElderAdvocacyPage.js' },
+              'caretaker-bias': { cls: 'CaretakerBiasPage', file: 'situation/js/CaretakerBiasPage.js' },
+              'ai-perspective': { cls: 'AiPerspectivePage', file: 'situation/js/AiPerspectivePage.js' },
+              'current-work': { cls: 'CurrentWorkPage', file: 'situation/js/CurrentWorkPage.js' },
+              valuation: { cls: 'ValuationPage', file: 'situation/js/ValuationPage.js' },
+              'court-filing': { cls: 'CourtFilingPage', file: 'situation/js/CourtFilingPage.js' }
+            },
+            EconomicsOfAutomation: {
+              dividend: { cls: 'ArticleContent', file: 'EconomicsOfAutomation/js/ArticleContent.js' },
+              colony: { cls: 'ColonyContent', file: 'EconomicsOfAutomation/js/ColonyContent.js' },
+              earth: { cls: 'EarthContent', file: 'EconomicsOfAutomation/js/EarthContent.js' },
+              statusquo: { cls: 'KineticContent', file: 'EconomicsOfAutomation/js/KineticContent.js' },
+              doomer: { cls: 'DoomerContent', file: 'EconomicsOfAutomation/js/DoomerContent.js' },
+              paradigms: { cls: 'ParadigmsContent', file: 'EconomicsOfAutomation/js/ParadigmsContent.js' },
+              objections: { cls: 'ObjectionsContent', file: 'EconomicsOfAutomation/js/ObjectionsContent.js' },
+              gametheory: { cls: 'GameTheoryContent', file: 'EconomicsOfAutomation/js/GameTheoryContent.js' },
+              rules: { cls: 'RulesContent', file: 'EconomicsOfAutomation/js/RulesContent.js' },
+              'ai-rules': { cls: 'AiRulesContent', file: 'EconomicsOfAutomation/js/AiRulesContent.js' }
+            },
+            Opus: {
+              overview: { cls: 'OpusOverviewContent', file: 'Opus/js/OpusOverviewContent.js' },
+              verification: { cls: 'OpusVerificationContent', file: 'Opus/js/OpusVerificationContent.js' },
+              q1_cad: { cls: 'OpusQ1CadContent', file: 'Opus/js/OpusQ1CadContent.js' },
+              q2_narrative: { cls: 'OpusQ2NarrativeContent', file: 'Opus/js/OpusQ2NarrativeContent.js' },
+              q3_economics: { cls: 'OpusQ3EconomicsContent', file: 'Opus/js/OpusQ3EconomicsContent.js' },
+              q4_cockpit: { cls: 'OpusQ4CockpitContent', file: 'Opus/js/OpusQ4CockpitContent.js' },
+              strategy: { cls: 'OpusGrandStrategyContent', file: 'Opus/js/OpusGrandStrategyContent.js' }
+            },
+            accudraw: {
+              overview: { cls: 'AccuDrawArchiveApp', file: 'accudraw/js/AccuDrawArchiveApp.js' },
+              inventions: { cls: 'AccuDrawArchiveApp', file: 'accudraw/js/AccuDrawArchiveApp.js' },
+              articles: { cls: 'AccuDrawArchiveApp', file: 'accudraw/js/AccuDrawArchiveApp.js' },
+              lore: { cls: 'AccuDrawArchiveApp', file: 'accudraw/js/AccuDrawArchiveApp.js' },
+              valuation: { cls: 'AccuDrawArchiveApp', file: 'accudraw/js/AccuDrawArchiveApp.js' },
+              verify: { cls: 'AccuDrawArchiveApp', file: 'accudraw/js/AccuDrawArchiveApp.js' }
+            },
+            ValuationOfAccudraw: {
+              overview: { cls: 'ValuationOfAccudraw', file: 'ValuationOfAccudraw/js/ValuationOfAccudraw.js' }
+            },
+            JobsAndAI: {
+              overview: { cls: 'JobsAndAI', file: 'JobsAndAI/js/JobsAndAI.js' },
+              thesis: { cls: 'ThesisPage', file: 'JobsAndAI/js/ThesisPage.js' },
+              'ai-perspective': { cls: 'AiPerspectivePage', file: 'JobsAndAI/js/AiPerspectivePage.js' }
+            }
+          };
+
+          let itemNumber = 1;
+          const allNoteIds = [];
+
+          for (const [key, notes] of Object.entries(grouped)) {
+            const [pageId, blockId] = key.split(':');
+            const isComponent = Boolean(componentClassMap[blockId] || blockId.startsWith('comp_'));
+            const isUniversal = Boolean(notes[0]?.isUniversalElement || notes[0]?.xpath);
+
+            let targetCls = '';
+            let targetFile = '';
+            let targetDesc = '';
+            let previewText = '';
+
+            if (isComponent && componentClassMap[blockId]) {
+              targetCls = componentClassMap[blockId].cls;
+              targetFile = componentClassMap[blockId].file;
+              targetDesc = componentClassMap[blockId].desc;
+            } else {
+              const readerPage = reader?.pages?.find(p => p.id === pageId);
+              const readerDocCls = readerPage?.docClass ? readerPage.docClass() : null;
+              const mapped = dossierPageMaps[dossierId]?.[pageId];
+              targetCls = mapped?.cls || readerDocCls?.name || (pageId.charAt(0).toUpperCase() + pageId.slice(1) + 'Content');
+              targetFile = mapped?.file || `${dossierId}/js/${targetCls}.js`;
+
+              const docCls = readerDocCls || globalThis[targetCls];
+              if (docCls && typeof docCls[blockId] === 'function') {
+                const val = docCls[blockId]();
+                previewText = Array.isArray(val) ? val.join('\n\n') : String(val);
+              }
+            }
+
+            if (!previewText) {
+              const domEl = document.querySelector(`[data-block-id="${blockId}"], [data-block="${blockId}"]`);
+              if (domEl) {
+                previewText = (domEl.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 320);
+              }
+            }
+            if (!previewText && notes[0]?.blockPreview) {
+              previewText = notes[0].blockPreview;
+            }
+
+            const hasStaticMethod = Boolean(globalThis[targetCls] && typeof globalThis[targetCls][blockId] === 'function');
+            const targetMethod = isComponent ? 'render' : (hasStaticMethod ? blockId : 'render');
+
+            out += `## ${itemNumber++}. Target: \`${targetCls}.${isComponent ? 'render' : blockId}\`\n`;
+            out += `**Page / Section:** \`${pageId}\` • **Block / Element ID:** \`${blockId}\`\n`;
+            if (notes[0]?.enclosingBlockId && notes[0].enclosingBlockId !== blockId) {
+              out += `**Enclosing Block:** \`${notes[0].enclosingBlockId}\`\n`;
+            }
+            out += `**Target File:** \`${targetFile}\`\n`;
+            if (targetDesc) out += `**Component Role:** *${targetDesc}*\n`;
+
+            if (isUniversal && notes[0]?.xpath) {
+              out += `**DOM XPath Locator:** \`${notes[0].xpath}\`\n`;
+              if (notes[0].cssPath) out += `**CSS Selector:** \`${notes[0].cssPath}\`\n`;
+            }
+            out += '\n';
+
+            if (previewText) {
+              out += '### Context / Code Excerpt:\n';
+              out += '> ' + previewText.replace(/\n+/g, '\n> ') + '\n\n';
+            }
+
+            out += '### Author Directives & Living Annotations:\n';
+            notes.sort((a, b) => a.timestamp - b.timestamp).forEach((note, idx) => {
+              allNoteIds.push(note.id);
+              const timeStr = new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              const cleanTag = note.status === 'pending_cleanup' ? ' `[🧹 MARKED FOR ARCHIVE]`' : '';
+              out += `${idx + 1}. **(${timeStr} • ID: \`${note.id}\`)${cleanTag}:** ${note.text}\n`;
+              if (note.videoLink) {
+                out += `   - 📹 *Video Anchor:* \`${note.videoLink.videoId}\` @ **${note.videoLink.time}s** (${note.videoLink.label || 'Timestamp'})\n`;
+              }
+            });
+            out += '\n';
+
+            out += '### Expected Implementation Output Container:\n';
+            out += '<' + `script data-file="${targetFile}" data-method="${targetCls}.${targetMethod}" data-action="patch">\n`;
+            out += `// Updated implementation incorporating author directives for [${blockId}]...\n`;
+            out += '<' + '/script>\n\n';
+            out += '---\n\n';
+          }
+
+          if (overrides.length > 0 && DocEditor && typeof DocEditor.generateSurgicalPatches === 'function') {
+            const revPatches = DocEditor.generateSurgicalPatches(dossierId);
+            if (revPatches) {
+              out += `## ✏️ In-Situ Text Revisions (${overrides.length})\n\n`;
+              overrides.forEach((ov, idx) => {
+                out += `${idx + 1}. **\`${ov.pageId}/${ov.blockId}\`**: ${ov.text}\n`;
+              });
+              out += `\n\`\`\`html\n${revPatches}\n\`\`\`\n\n`;
+            }
+          }
+
+          if (allNoteIds.length > 0) {
+            out += `### Auto-Resolution Footer (Include inside your html patch block when finished):\n`;
+            out += `\`<!-- RESOLVED_NOTES: ${allNoteIds.join(', ')} -->\`\n`;
+          }
+
+          return out.trim();
+        }
+
+  static async openPromptBuilderDialog(docReader = null) {
+        const hostContainer = document.body;
+        const reader = docReader || globalThis._activeDocumentReader || null;
+        const promptText = await this.buildNotesDirectivePrompt(reader);
+        const dossierId = this._resolveDossierId(reader?.options?.dossierId, reader);
+        const allNotes = await this.getAllNotes(dossierId);
+        const activeNotes = allNotes.filter(n => n.status !== 'resolved');
+
+        const wrap = makeElement('div', {
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            height: '100%',
+            color: '#e2e8f0',
+            fontFamily: 'var(--dr-font-sans, system-ui, sans-serif)'
+          }
+        });
+
+        const topBar = makeElement('div', {
+          style: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '6px 4px',
+            borderBottom: '1px solid #232d3f',
+            fontSize: '11.5px',
+            fontFamily: 'monospace'
+          }
+        }, [
+          makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold' } }, `⚡ Active Living Directives [${dossierId}]: ${activeNotes.length}`),
+          makeElement('span', { style: { color: '#10b981' } }, 'Connected to Luno Outbox')
+        ]);
+        wrap.appendChild(topBar);
+
+        const desc = makeElement('div', {
+          style: {
+            fontSize: '11px',
+            color: '#94a3b8',
+            lineHeight: '1.4',
+            background: 'rgba(0, 242, 254, 0.05)',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            border: '1px solid rgba(0, 242, 254, 0.2)'
+          }
+        }, 'Packages all notes, universal element XPath locators, and code contexts into a compilable payload. Dispatches directly to Luno Outbox, saves to disk via Node.js server save, or copies to clipboard.');
+        wrap.appendChild(desc);
+
+        const codeArea = makeElement('textarea', {
+          style: {
+            flex: 1,
+            minHeight: '240px',
+            background: '#090d16',
+            color: '#7ee787',
+            border: '1.5px solid #232d3f',
+            borderRadius: '8px',
+            padding: '12px',
+            fontFamily: 'var(--dr-font-mono, monospace)',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            resize: 'vertical',
+            outline: 'none',
+            whiteSpace: 'pre'
+          },
+          readonly: true,
+          spellcheck: false
+        });
+        codeArea.value = promptText;
+        wrap.appendChild(codeArea);
+
+        const footer = makeElement('div', {
+          style: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingTop: '8px',
+            borderTop: '1px solid #232d3f',
+            gap: '8px',
+            flexWrap: 'wrap'
+          }
+        });
+
+        const leftButtons = makeElement('div', { style: { display: 'flex', gap: '8px' } }, [
+          makeElement('button', {
+            className: 'dr-nav-btn',
+            style: { color: '#f59e0b', borderColor: '#f59e0b66', fontSize: '11px' },
+            onclick: async () => {
+              if (confirm(`Archive/mark all ${activeNotes.length} active notes in [${dossierId}] as incorporated?`)) {
+                for (const n of activeNotes) {
+                  await CadPlanItemNotes.updateNote(n.id, { status: 'resolved' });
+                }
+                alert(`✓ Directives for [${dossierId}] archived.`);
+                dlg.close();
+                if (reader && typeof reader._updateBlockNoteBadges === 'function') {
+                  reader._updateBlockNoteBadges();
+                }
+              }
+            }
+          }, '🧹 Mark Incorporated')
+        ]);
+
+        const rightButtons = makeElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, [
+          makeElement('button', {
+            className: 'dr-nav-btn',
+            style: { background: '#271052', color: '#d2a8ff', borderColor: '#8257e5', fontSize: '11px', fontWeight: 'bold' },
+            onclick: () => {
+              const res = CadPlanItemNotes.dispatchToOutbox(`${dossierId} Living Spec Directives`, promptText);
+              if (res.channel === 'clipboard-fallback') {
+                alert('✓ Copied evolution prompt to clipboard (OutboxQueue not mounted in parent).');
+              } else {
+                alert(`✓ Dispatched evolution prompt directly to Luno Outbox via [${res.channel}]!`);
+              }
+              dlg.close();
+            }
+          }, '📤 Push to Outbox'),
+
+          makeElement('button', {
+            className: 'dr-nav-btn',
+            style: { background: '#0a233a', color: '#38bdf8', borderColor: '#0284c7', fontSize: '11px' },
+            onclick: async () => {
+              const dumpPath = `PromptDumps/${dossierId}_EvolutionDirectives.md`;
+              let savedSuccessfully = false;
+
+              try {
+                const res = await fetch(`/api/save?project=${encodeURIComponent(dossierId)}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    files: [{ path: dumpPath, content: promptText }]
+                  })
+                });
+                const data = await res.json();
+                if (data && data.success) savedSuccessfully = true;
+              } catch (e) {}
+
+              if (savedSuccessfully) {
+                alert(`✓ Written directly to local disk at ${dumpPath}!`);
+                dlg.close();
+              } else {
+                const blob = new Blob([promptText], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = makeElement('a', { href: url, download: `${dossierId}_Directives_${Date.now()}.md` });
+                a.click();
+                URL.revokeObjectURL(url);
+                dlg.close();
+              }
+            }
+          }, '⚡ Save to Disk'),
+
+          makeElement('button', {
+            className: 'dr-nav-btn primary',
+            style: { fontWeight: 'bold' },
+            onclick: (e) => {
+              const btn = e.currentTarget;
+              navigator.clipboard.writeText(promptText).then(() => {
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => { btn.textContent = '📋 Copy Prompt'; }, 1800);
+              });
+            }
+          }, '📋 Copy Prompt')
+        ]);
+
+        footer.appendChild(leftButtons);
+        footer.appendChild(rightButtons);
+        wrap.appendChild(footer);
+
+        const dlgW = Math.min(660, window.innerWidth - 20);
+        const dlgH = Math.min(580, window.innerHeight - 40);
+
+        const dlg = UITools.makeDialog({
+          title: `⚡ Living Specification Evolution Deck [${dossierId}]`,
+          size: [dlgW, dlgH],
+          position: [Math.max(10, Math.floor((window.innerWidth - dlgW) / 2)), Math.max(16, Math.floor((window.innerHeight - dlgH) / 2))],
+          contentElement: wrap,
+          appendTo: hostContainer
+        });
+
+        return dlg;
+      }
 
   static async openBlockNotesDialog(pageId, blockId, currentDoc, onUpdated, hostReader = null, extraOptions = {}) {
-        if (typeof CommentsItemNotes !== 'undefined' && typeof CommentsItemNotes.openBlockNotesDialog === 'function') {
-          return CommentsItemNotes.openBlockNotesDialog(pageId, blockId, currentDoc, onUpdated, hostReader, extraOptions);
-        }
-
-        this._injectNoteStudioStyles();
-
-        const dossierId = extraOptions.dossierId || hostReader?.options?.dossierId || 'HomeSetup';
-        const notes = await this.getNotesForBlock(pageId, blockId, dossierId);
-        const activeNotes = notes.filter(n => n.status !== 'resolved');
-        const testReadyNote = notes.find(n => n.status === 'test_ready');
-        const hostContainer = document.body;
-
-        // Master Studio Container
-        const wrap = makeElement('div', {
-          className: 'dr-note-studio-wrap',
-          style: {
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            width: '100%',
-            boxSizing: 'border-box',
-            gap: '10px',
-            fontFamily: 'var(--dr-font-sans, system-ui, sans-serif)',
-            color: '#f8fafc',
-            overflow: 'hidden'
+          if (typeof CommentsItemNotes !== 'undefined' && typeof CommentsItemNotes.openBlockNotesDialog === 'function') {
+            return CommentsItemNotes.openBlockNotesDialog(pageId, blockId, currentDoc, onUpdated, hostReader, extraOptions);
           }
-        });
 
-        // 1. Sleek Header Ribbon with Target Locator
-        const targetLabel = extraOptions.locator?.tagName 
-          ? `<${extraOptions.locator.tagName}#${blockId}>` 
-          : `${pageId} / ${blockId}`;
+          this._injectNoteStudioStyles();
 
-        const headerRibbon = makeElement('div', {
-          style: {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingBottom: '8px',
-            borderBottom: '1px solid rgba(0, 242, 254, 0.2)',
-            fontSize: '11px',
-            fontFamily: 'var(--dr-font-mono, monospace)',
-            flexShrink: 0
-          }
-        }, [
-          makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
-            makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold' } }, `🎯 PIN: ${targetLabel}`),
-            activeNotes.length > 0 
-              ? makeElement('span', { className: 'dr-note-count-pill' }, `${activeNotes.length} active`) 
-              : makeElement('span', { style: { color: '#64748b' } }, '● Fresh Directive')
-          ]),
-          makeElement('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } }, [
-            makeElement('span', { style: { color: '#94a3b8', fontSize: '10px' } }, 'Voice-First Studio')
-          ])
-        ]);
-        wrap.appendChild(headerRibbon);
+          const activeReader = hostReader || globalThis._activeDocumentReader || null;
+          const dossierId = this._resolveDossierId(extraOptions.dossierId, activeReader);
+          const notes = await this.getNotesForBlock(pageId, blockId, dossierId);
+          const activeNotes = notes.filter(n => n.status !== 'resolved');
+          const testReadyNote = notes.find(n => n.status === 'test_ready');
+          const hostContainer = document.body;
 
-        // 2. Interactive Test Directive Banner (If LLM handed off a test task)
-        if (testReadyNote) {
-          const testCard = makeElement('div', {
-            className: 'dr-test-directive-banner',
+          const wrap = makeElement('div', {
+            className: 'dr-note-studio-wrap',
             style: {
-              background: 'rgba(192, 132, 252, 0.12)',
-              border: '1.5px solid #c084fc',
-              boxShadow: '0 0 20px rgba(192, 132, 252, 0.25)',
-              borderRadius: '8px',
-              padding: '10px 14px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '12px',
-              flexShrink: 0
+              display: 'flex', flexDirection: 'column', height: '100%', width: '100%',
+              boxSizing: 'border-box', gap: '10px',
+              fontFamily: 'var(--dr-font-sans, system-ui, sans-serif)',
+              color: '#f8fafc', overflow: 'hidden'
+            }
+          });
+
+          const targetLabel = extraOptions.locator?.tagName
+            ? `<${extraOptions.locator.tagName}#${blockId}>`
+            : `${pageId} / ${blockId}`;
+
+          let currentTab = extraOptions.defaultTab === 'thread' ? 'thread' : 'note';
+          const btnTabNote = makeElement('button', {
+            className: `dr-tab-btn ${currentTab === 'note' ? 'active' : ''}`,
+            style: { padding: '3px 10px', fontSize: '10.5px' },
+            onclick: () => switchStudioTab('note')
+          }, `📝 Directives (${activeNotes.length})`);
+
+          const btnTabThread = makeElement('button', {
+            className: `dr-tab-btn ${currentTab === 'thread' ? 'active' : ''}`,
+            style: { padding: '3px 10px', fontSize: '10.5px' },
+            onclick: () => switchStudioTab('thread')
+          }, '💬 Discussion');
+
+          const headerRibbon = makeElement('div', {
+            style: {
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              paddingBottom: '8px', borderBottom: '1px solid rgba(0, 242, 254, 0.2)',
+              fontSize: '11px', fontFamily: 'var(--dr-font-mono, monospace)', flexShrink: 0,
+              flexWrap: 'wrap', gap: '6px'
             }
           }, [
-            makeElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 } }, [
-              makeElement('strong', { style: { color: '#d2a8ff', fontSize: '11px', fontFamily: 'monospace' } }, '🧪 LLM TEST DIRECTIVE READY:'),
-              makeElement('div', { style: { color: '#f1f5f9', fontSize: '12px', lineHeight: '1.4' } }, testReadyNote.testInstructions || testReadyNote.text)
+            makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 } }, [
+              makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `🎯 [${dossierId}] ${targetLabel}`)
             ]),
-            makeElement('button', {
-              className: 'dr-nav-btn primary',
-              style: {
-                background: '#238636', borderColor: '#2ea043', color: '#fff',
-                padding: '6px 14px', fontSize: '11.5px', fontWeight: 'bold', flexShrink: 0
-              },
-              onclick: async () => {
-                CadPlanItemNotes.playHapticChime('verify');
-                await CadPlanItemNotes.updateNote(testReadyNote.id, {
-                  status: 'resolved',
-                  verifiedTimestamp: Date.now()
-                });
-                if (typeof OutboxQueue !== 'undefined' && OutboxQueue.addItem) {
-                  OutboxQueue.addItem(`Verified: ${blockId}`, `✓ Verified fix for [${targetLabel}]: ${testReadyNote.testInstructions || testReadyNote.text}`);
-                }
-                dlg.close();
-                if (onUpdated) onUpdated();
-              }
-            }, '✓ Verified — Got It!')
+            makeElement('div', { style: { display: 'flex', gap: '4px', alignItems: 'center' } }, [
+              btnTabNote,
+              btnTabThread
+            ])
           ]);
-          wrap.appendChild(testCard);
-        }
+          wrap.appendChild(headerRibbon);
 
-        // 3. Compact Previous Directives Drawer (Non-intrusive, expandable)
-        if (activeNotes.length > 0) {
-          const historyDetails = makeElement('details', {
+          const noteTabBody = makeElement('div', {
             style: {
-              background: 'rgba(15, 23, 42, 0.6)',
-              border: '1px solid #1e293b',
-              borderRadius: '6px',
-              padding: '4px 10px',
-              fontSize: '11px',
-              color: '#cbd5e1',
-              flexShrink: 0
+              display: currentTab === 'note' ? 'flex' : 'none',
+              flexDirection: 'column', gap: '10px', flex: '1 1 auto', minHeight: 0
             }
           });
-          const summary = makeElement('summary', {
-            style: { cursor: 'pointer', outline: 'none', color: '#38bdf8', fontWeight: 'bold' }
-          }, `📜 View ${activeNotes.length} Existing Note${activeNotes.length === 1 ? '' : 's'} on this Block`);
 
-          const historyList = makeElement('div', {
-            style: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px', maxHeight: '110px', overflowY: 'auto' }
+          const threadTabBody = makeElement('div', {
+            style: {
+              display: currentTab === 'thread' ? 'flex' : 'none',
+              flexDirection: 'column', gap: '10px', flex: '1 1 auto', minHeight: 0, overflowY: 'auto'
+            }
           });
 
-          activeNotes.forEach(n => {
-            const item = makeElement('div', {
+          function switchStudioTab(tab) {
+            currentTab = tab;
+            btnTabNote.classList.toggle('active', tab === 'note');
+            btnTabThread.classList.toggle('active', tab === 'thread');
+            noteTabBody.style.display = tab === 'note' ? 'flex' : 'none';
+            threadTabBody.style.display = tab === 'thread' ? 'flex' : 'none';
+            if (tab === 'thread') renderDiscussionTab();
+          }
+
+          if (testReadyNote) {
+            const testCard = makeElement('div', {
+              className: 'dr-test-directive-banner',
               style: {
-                padding: '4px 8px', background: 'rgba(0,0,0,0.3)', borderLeft: '3px solid #00f2fe',
-                borderRadius: '3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                background: 'rgba(192, 132, 252, 0.12)', border: '1.5px solid #c084fc',
+                boxShadow: '0 0 20px rgba(192, 132, 252, 0.25)', borderRadius: '8px',
+                padding: '10px 14px', display: 'flex', justifyContent: 'space-between',
+                alignItems: 'center', gap: '12px', flexShrink: 0
               }
             }, [
-              makeElement('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } }, n.text),
+              makeElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 } }, [
+                makeElement('strong', { style: { color: '#d2a8ff', fontSize: '11px', fontFamily: 'monospace' } }, '🧪 LLM TEST DIRECTIVE READY:'),
+                makeElement('div', { style: { color: '#f1f5f9', fontSize: '12px', lineHeight: '1.4' } }, testReadyNote.testInstructions || testReadyNote.text)
+              ]),
               makeElement('button', {
-                style: { background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '10px' },
+                className: 'dr-nav-btn primary',
+                style: {
+                  background: '#238636', borderColor: '#2ea043', color: '#fff',
+                  padding: '6px 14px', fontSize: '11.5px', fontWeight: 'bold', flexShrink: 0
+                },
                 onclick: async () => {
-                  await CadPlanItemNotes.updateNote(n.id, { status: 'resolved' });
-                  CadPlanItemNotes.playHapticChime('commit');
+                  CadPlanItemNotes.playHapticChime('verify');
+                  await CadPlanItemNotes.updateNote(testReadyNote.id, {
+                    status: 'resolved',
+                    verifiedTimestamp: Date.now()
+                  });
+                  if (typeof OutboxQueue !== 'undefined' && OutboxQueue.addBundle) {
+                    OutboxQueue.addBundle(`Verified: ${blockId}`, `✓ Verified fix for [${targetLabel}]: ${testReadyNote.testInstructions || testReadyNote.text}`);
+                  }
                   dlg.close();
-                  CadPlanItemNotes.openBlockNotesDialog(pageId, blockId, currentDoc, onUpdated, hostReader, extraOptions);
                   if (onUpdated) onUpdated();
                 }
-              }, '✓ Resolve')
+              }, '✓ Verified — Got It!')
             ]);
-            historyList.appendChild(item);
+            noteTabBody.appendChild(testCard);
+          }
+
+          if (activeNotes.length > 0) {
+            const historyDetails = makeElement('details', {
+              open: true,
+              style: {
+                background: 'rgba(15, 23, 42, 0.6)', border: '1px solid #1e293b',
+                borderRadius: '6px', padding: '6px 10px', fontSize: '11px',
+                color: '#cbd5e1', flexShrink: 0
+              }
+            });
+            const summary = makeElement('summary', {
+              style: { cursor: 'pointer', outline: 'none', color: '#38bdf8', fontWeight: 'bold' }
+            }, `📜 ${activeNotes.length} Existing Note${activeNotes.length === 1 ? '' : 's'} on this Block`);
+
+            const historyList = makeElement('div', {
+              style: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px', maxHeight: '110px', overflowY: 'auto' }
+            });
+
+            activeNotes.forEach(n => {
+              const item = makeElement('div', {
+                style: {
+                  padding: '4px 8px', background: 'rgba(0,0,0,0.3)', borderLeft: '3px solid #00f2fe',
+                  borderRadius: '3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px'
+                }
+              }, [
+                makeElement('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }, title: n.text }, n.text),
+                makeElement('button', {
+                  style: { background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' },
+                  onclick: async () => {
+                    await CadPlanItemNotes.updateNote(n.id, { status: 'resolved' });
+                    CadPlanItemNotes.playHapticChime('commit');
+                    dlg.close();
+                    CadPlanItemNotes.openBlockNotesDialog(pageId, blockId, currentDoc, onUpdated, activeReader, { ...extraOptions, dossierId });
+                    if (onUpdated) onUpdated();
+                  }
+                }, '✓ Resolve'),
+                makeElement('button', {
+                  style: { background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '10px' },
+                  title: 'Delete note',
+                  onclick: async () => {
+                    await CadPlanItemNotes.deleteNote(n.id);
+                    dlg.close();
+                    CadPlanItemNotes.openBlockNotesDialog(pageId, blockId, currentDoc, onUpdated, activeReader, { ...extraOptions, dossierId });
+                    if (onUpdated) onUpdated();
+                  }
+                }, '✕')
+              ]);
+              historyList.appendChild(item);
+            });
+
+            historyDetails.appendChild(summary);
+            historyDetails.appendChild(historyList);
+            noteTabBody.appendChild(historyDetails);
+          }
+
+          const studioCanvas = makeElement('div', {
+            className: 'dr-dictation-studio-canvas',
+            style: {
+              flex: '1 1 auto', display: 'flex', flexDirection: 'column',
+              background: 'rgba(4, 7, 14, 0.95)', border: '1.5px solid rgba(0, 242, 254, 0.3)',
+              borderRadius: '10px', overflow: 'hidden',
+              boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.8), 0 0 15px rgba(0, 242, 254, 0.08)'
+            }
           });
 
-          historyDetails.appendChild(summary);
-          historyDetails.appendChild(historyList);
-          wrap.appendChild(historyDetails);
-        }
-
-        // 4. THE DOMINANT DICTATION CANVAS (Takes 70%+ of vertical real estate)
-        const studioCanvas = makeElement('div', {
-          className: 'dr-dictation-studio-canvas',
-          style: {
-            flex: '1 1 auto',
-            display: 'flex',
-            flexDirection: 'column',
-            background: 'rgba(4, 7, 14, 0.95)',
-            border: '1.5px solid rgba(0, 242, 254, 0.3)',
-            borderRadius: '10px',
-            overflow: 'hidden',
-            boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.8), 0 0 15px rgba(0, 242, 254, 0.08)'
-          }
-        });
-
-        // Waveform Status Ribbon
-        const waveRibbon = makeElement('div', {
-          className: 'dr-waveform-ribbon',
-          style: {
-            padding: '6px 14px',
-            background: 'rgba(15, 23, 42, 0.95)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexShrink: 0
-          }
-        }, [
-          waveStatusText = makeElement('span', {
+          const waveStatusText = makeElement('span', {
             style: { fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', fontFamily: 'monospace' }
-          }, '🎙️ Click "Start Listening" to dictate or type below...'),
-          waveBars = makeElement('div', { className: 'dr-audio-wave-bars' }, [
+          }, '🎙️ Click "Start Listening" to dictate or type below...');
+
+          const waveBars = makeElement('div', { className: 'dr-audio-wave-bars' }, [
             makeElement('span', { className: 'dr-wave-bar' }),
             makeElement('span', { className: 'dr-wave-bar' }),
             makeElement('span', { className: 'dr-wave-bar' }),
             makeElement('span', { className: 'dr-wave-bar' })
-          ])
-        ]);
-        studioCanvas.appendChild(waveRibbon);
+          ]);
 
-        let waveStatusText, waveBars;
+          const waveRibbon = makeElement('div', {
+            className: 'dr-waveform-ribbon',
+            style: {
+              padding: '6px 14px', background: 'rgba(15, 23, 42, 0.95)',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0
+            }
+          }, [waveStatusText, waveBars]);
+          studioCanvas.appendChild(waveRibbon);
 
-        // Embedded Super-Dictation Engine
-        let dictation = null;
-        let textInputArea = null;
+          let dictation = null;
+          let textInputArea = null;
 
-        if (typeof DictationWidget !== 'undefined') {
-          dictation = new DictationWidget({
-            compact: true,
-            placeholder: 'Speak freely or type your specification directive here...'
-          });
+          if (typeof DictationWidget !== 'undefined') {
+            dictation = new DictationWidget({
+              compact: true,
+              placeholder: 'Speak freely or type your specification directive here...'
+            });
 
-          // Tweak internal layout to maximize viewport
-          const dEl = dictation.getElement();
-          dEl.style.flex = '1';
-          dEl.style.display = 'flex';
-          dEl.style.flexDirection = 'column';
-          dEl.style.border = 'none';
-          dEl.style.borderRadius = '0';
-          dEl.style.background = 'transparent';
+            const dEl = dictation.getElement();
+            dEl.style.flex = '1';
+            dEl.style.display = 'flex';
+            dEl.style.flexDirection = 'column';
+            dEl.style.border = 'none';
+            dEl.style.borderRadius = '0';
+            dEl.style.background = 'transparent';
 
-          const dEditor = dEl.querySelector('.dictation-editor-content');
-          if (dEditor) {
-            dEditor.style.fontSize = '15px';
-            dEditor.style.lineHeight = '1.7';
-            dEditor.style.padding = '18px';
-            dEditor.style.color = '#f8fafc';
-            dEditor.style.minHeight = '220px';
+            const dEditor = dEl.querySelector('.dictation-editor-content');
+            if (dEditor) {
+              dEditor.style.fontSize = '15px';
+              dEditor.style.lineHeight = '1.7';
+              dEditor.style.padding = '16px';
+              dEditor.style.color = '#f8fafc';
+              dEditor.style.minHeight = '150px';
+            }
+
+            const origToggle = dictation.toggleListening.bind(dictation);
+            dictation.toggleListening = () => {
+              origToggle();
+              const active = dictation.isListening;
+              waveBars.classList.toggle('active', active);
+              waveStatusText.textContent = active ? '🔴 Listening actively... (speak now)' : '🔇 Mic idle. Click to dictate.';
+              waveStatusText.style.color = active ? '#00f2fe' : '#94a3b8';
+              CadPlanItemNotes.playHapticChime(active ? 'mic-on' : 'mic-off');
+            };
+
+            studioCanvas.appendChild(dEl);
+          } else {
+            textInputArea = makeElement('textarea', {
+              placeholder: 'Type your directive or spec refinement here...',
+              style: {
+                flex: '1', width: '100%', minHeight: '150px', background: 'transparent',
+                color: '#f8fafc', border: 'none', padding: '16px', fontSize: '15px',
+                lineHeight: '1.7', fontFamily: 'var(--dr-font-sans, sans-serif)', outline: 'none', resize: 'none'
+              }
+            });
+            studioCanvas.appendChild(textInputArea);
           }
 
-          // Hook Waveform visualizer to dictation listening state
-          const origToggle = dictation.toggleListening.bind(dictation);
-          dictation.toggleListening = () => {
-            origToggle();
-            const active = dictation.isListening;
-            waveBars.classList.toggle('active', active);
-            waveStatusText.textContent = active ? '🔴 Listening actively... (speak now)' : '🔇 Mic idle. Click to dictate.';
-            waveStatusText.style.color = active ? '#00f2fe' : '#94a3b8';
-            CadPlanItemNotes.playHapticChime(active ? 'mic-on' : 'mic-off');
+          noteTabBody.appendChild(studioCanvas);
+
+          const getCurrentText = () => {
+            if (dictation) {
+              const raw = dictation.editorContent ? (dictation.editorContent.innerText || dictation.getText()) : dictation.getText();
+              return (raw || '').replace(/[\u200B\u00A0]/g, ' ').trim();
+            }
+            return textInputArea?.value?.trim() || '';
           };
 
-          studioCanvas.appendChild(dEl);
-        } else {
-          textInputArea = makeElement('textarea', {
-            placeholder: 'Type your directive or spec refinement here...',
+          const commitCurrentNote = async () => {
+            const val = getCurrentText();
+            if (!val) return null;
+            const preview = extraOptions.locator?.textSnippet ||
+              (extraOptions.targetElement ? (extraOptions.targetElement.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 140) : '');
+            const created = await CadPlanItemNotes.addNote(pageId, blockId, val, {
+              dossierId,
+              enclosingBlockId: extraOptions.enclosingBlockId || null,
+              author: 'Rob Brown',
+              blockPreview: preview,
+              xpath: extraOptions.locator?.xpath || null,
+              cssPath: extraOptions.locator?.cssPath || null,
+              tagName: extraOptions.locator?.tagName || null
+            });
+            if (extraOptions.targetElement) {
+              extraOptions.targetElement.classList.remove('dr-pulse-highlight');
+              void extraOptions.targetElement.offsetWidth;
+              extraOptions.targetElement.classList.add('dr-pulse-highlight');
+            }
+            if (dictation) dictation.clearContent();
+            if (textInputArea) textInputArea.value = '';
+            return created;
+          };
+
+          const actionFooter = makeElement('div', {
             style: {
-              flex: '1', width: '100%', minHeight: '220px', background: 'transparent',
-              color: '#f8fafc', border: 'none', padding: '18px', fontSize: '15px',
-              lineHeight: '1.7', fontFamily: 'var(--dr-font-sans, sans-serif)', outline: 'none', resize: 'none'
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              paddingTop: '6px', borderTop: '1px solid rgba(0, 242, 254, 0.15)', flexShrink: 0, gap: '8px', flexWrap: 'wrap'
+            }
+          }, [
+            makeElement('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } }, [
+              makeElement('button', {
+                className: 'dr-nav-btn',
+                style: { padding: '7px 10px', fontSize: '11px', color: '#94a3b8' },
+                onclick: () => {
+                  if (dictation) dictation.clearContent();
+                  if (textInputArea) textInputArea.value = '';
+                }
+              }, 'Clear'),
+              makeElement('button', {
+                className: 'dr-nav-btn',
+                style: { padding: '7px 11px', fontSize: '11px', color: '#d2a8ff', borderColor: '#8257e566' },
+                title: 'Save any draft note, compile all directives in this dossier, and open Outbox / LLM compiler',
+                onclick: async () => {
+                  await commitCurrentNote();
+                  if (onUpdated) onUpdated();
+                  dlg.close();
+                  CadPlanItemNotes.openPromptBuilderDialog(activeReader || { options: { dossierId } });
+                }
+              }, '⚡ Compile All')
+            ]),
+
+            makeElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, [
+              makeElement('button', {
+                className: 'dr-nav-btn',
+                style: {
+                  padding: '8px 14px', fontSize: '11.5px', fontWeight: '800',
+                  color: '#10b981', borderColor: '#10b98188', background: 'rgba(16, 185, 129, 0.12)',
+                  borderRadius: '20px', cursor: 'pointer'
+                },
+                title: 'Save this note and immediately copy the full LLM edit prompt to clipboard',
+                onclick: async (e) => {
+                  const btn = e.currentTarget;
+                  const created = await commitCurrentNote();
+                  if (!created && activeNotes.length === 0) return;
+
+                  CadPlanItemNotes.playHapticChime('commit');
+                  const prompt = await CadPlanItemNotes.buildNotesDirectivePrompt(activeReader || { options: { dossierId } });
+                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(prompt);
+                  }
+                  btn.textContent = '✓ Copied for LLM!';
+                  setTimeout(() => {
+                    dlg.close();
+                    if (onUpdated) onUpdated();
+                  }, 350);
+                }
+              }, '📋 Save & Copy for LLM'),
+
+              makeElement('button', {
+                className: 'dr-nav-btn primary dr-commit-directive-btn',
+                style: {
+                  padding: '9px 18px', fontSize: '12px', fontWeight: '800', letterSpacing: '0.04em',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #00f2fe 100%)',
+                  color: '#070a13', border: 'none', borderRadius: '20px', cursor: 'pointer',
+                  boxShadow: '0 4px 18px rgba(0, 242, 254, 0.4)'
+                },
+                onclick: async (e) => {
+                  const btn = e.currentTarget;
+                  const created = await commitCurrentNote();
+                  if (!created) return;
+
+                  CadPlanItemNotes.playHapticChime('commit');
+                  btn.classList.add('dr-btn-commit-flash');
+                  btn.textContent = '✓ Pinned!';
+
+                  setTimeout(() => {
+                    dlg.close();
+                    if (onUpdated) onUpdated();
+                  }, 260);
+                }
+              }, '⚡ Commit & Pin')
+            ])
+          ]);
+          noteTabBody.appendChild(actionFooter);
+
+          let threadRendered = false;
+          async function renderDiscussionTab() {
+            if (threadRendered) return;
+            threadRendered = true;
+            threadTabBody.innerHTML = '';
+
+            const threadId = `thread_${dossierId}_${pageId}_${blockId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+            if (typeof Comments !== 'undefined') {
+              const mount = makeElement('div', { style: { flex: 1, minHeight: '260px' } });
+              threadTabBody.appendChild(mount);
+              const app = new Comments();
+              app.init(mount, {
+                threadId,
+                showTitle: false,
+                elementAnchor: `${dossierId}:${pageId}:${blockId}`
+              });
+              return;
+            }
+
+            const adapter = (typeof SupabaseCommentsAdapter !== 'undefined') ? new SupabaseCommentsAdapter() : null;
+            const statusLine = makeElement('div', {
+              style: { fontSize: '10.5px', color: '#94a3b8', fontFamily: 'monospace' }
+            }, adapter && !adapter.isLocalFallback ? '☁️ Synced via Supabase' : '💾 Stored locally in browser');
+
+            const commentsList = makeElement('div', {
+              style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }
+            });
+
+            const loadPosts = async () => {
+              commentsList.innerHTML = '';
+              let posts = [];
+              if (adapter) {
+                posts = await adapter.fetchComments(threadId);
+              } else {
+                try {
+                  posts = JSON.parse(localStorage.getItem(`local_thread_${threadId}`) || '[]');
+                } catch (e) { posts = []; }
+              }
+              if (posts.length === 0) {
+                commentsList.appendChild(makeElement('div', {
+                  style: { padding: '24px', textAlign: 'center', color: '#64748b', fontStyle: 'italic', fontSize: '12px' }
+                }, 'No discussion comments on this block yet. Start the conversation below.'));
+                return;
+              }
+              posts.forEach(p => {
+                commentsList.appendChild(makeElement('div', {
+                  style: {
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid #1e293b',
+                    borderLeft: '3px solid #38bdf8', borderRadius: '6px', padding: '8px 10px'
+                  }
+                }, [
+                  makeElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8', marginBottom: '4px' } }, [
+                    makeElement('strong', { style: { color: '#38bdf8' } }, p.author_name || 'Guest Reader'),
+                    makeElement('span', {}, p.created_at ? new Date(p.created_at).toLocaleString() : '')
+                  ]),
+                  makeElement('div', { style: { fontSize: '12px', color: '#f1f5f9', lineHeight: '1.5' } }, p.text)
+                ]));
+              });
+            };
+
+            const authorInput = makeElement('input', {
+              type: 'text',
+              placeholder: 'Your name (default: Rob Brown)',
+              value: localStorage.getItem('dr_comment_author') || 'Rob Brown',
+              style: {
+                background: '#050811', color: '#f8fafc', border: '1px solid #1e293b',
+                borderRadius: '6px', padding: '6px 10px', fontSize: '11.5px', outline: 'none'
+              }
+            });
+
+            const commentBox = makeElement('textarea', {
+              placeholder: 'Write a discussion comment on this block...',
+              style: {
+                minHeight: '76px', background: '#050811', color: '#f8fafc',
+                border: '1px solid #1e293b', borderRadius: '6px', padding: '8px 10px',
+                fontSize: '12.5px', lineHeight: '1.5', resize: 'vertical', outline: 'none'
+              }
+            });
+
+            const postBtn = makeElement('button', {
+              className: 'dr-nav-btn primary',
+              style: { alignSelf: 'flex-end', padding: '6px 14px', fontSize: '11.5px', fontWeight: 'bold' },
+              onclick: async () => {
+                const txt = commentBox.value.trim();
+                if (!txt) return;
+                const authorName = authorInput.value.trim() || 'Guest Reader';
+                localStorage.setItem('dr_comment_author', authorName);
+                if (adapter) {
+                  await adapter.postComment({
+                    threadId,
+                    authorName,
+                    text: txt,
+                    xpath: extraOptions.locator?.xpath || null
+                  });
+                } else {
+                  const key = `local_thread_${threadId}`;
+                  const arr = JSON.parse(localStorage.getItem(key) || '[]');
+                  arr.push({ id: 'c_' + Date.now(), author_name: authorName, text: txt, created_at: new Date().toISOString() });
+                  localStorage.setItem(key, JSON.stringify(arr));
+                }
+                commentBox.value = '';
+                await loadPosts();
+              }
+            }, '💬 Post Comment');
+
+            threadTabBody.append(statusLine, commentsList, authorInput, commentBox, postBtn);
+            await loadPosts();
+          }
+
+          wrap.append(noteTabBody, threadTabBody);
+          if (currentTab === 'thread') renderDiscussionTab();
+
+          const dlgW = Math.min(660, window.innerWidth - 20);
+          const dlgH = Math.min(580, window.innerHeight - 40);
+
+          const dlg = UITools.makeDialog({
+            title: `🏛️ Directives & Discussion • ${blockId}`,
+            size: [dlgW, dlgH],
+            position: [Math.max(10, Math.floor((window.innerWidth - dlgW) / 2)), Math.max(16, Math.floor((window.innerHeight - dlgH) / 2))],
+            contentElement: wrap,
+            appendTo: hostContainer,
+            onClose: () => {
+              if (dictation) dictation.stopListening();
             }
           });
-          studioCanvas.appendChild(textInputArea);
-        }
 
-        wrap.appendChild(studioCanvas);
-
-        // 5. High-Impact Action Bar
-        const actionFooter = makeElement('div', {
-          style: {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingTop: '6px',
-            borderTop: '1px solid rgba(0, 242, 254, 0.15)',
-            flexShrink: 0,
-            gap: '10px'
+          if (dlg && dlg.element) {
+            dlg.element.style.background = '#080d1a';
+            dlg.element.style.border = '1.5px solid #00f2fe';
+            dlg.element.style.borderRadius = '14px';
+            dlg.element.style.boxShadow = '0 28px 75px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(0, 242, 254, 0.35), 0 0 40px rgba(0, 242, 254, 0.2)';
+            dlg.element.style.backdropFilter = 'blur(20px)';
           }
-        }, [
-          makeElement('button', {
-            className: 'dr-nav-btn',
-            style: { padding: '8px 14px', fontSize: '11px', color: '#94a3b8' },
-            onclick: () => {
-              if (dictation) dictation.clearContent();
-              if (textInputArea) textInputArea.value = '';
-            }
-          }, 'Clear'),
 
-          makeElement('button', {
-            className: 'dr-nav-btn primary dr-commit-directive-btn',
-            style: {
-              padding: '9px 24px',
-              fontSize: '12px',
-              fontWeight: '800',
-              letterSpacing: '0.04em',
-              background: 'linear-gradient(135deg, #0284c7 0%, #00f2fe 100%)',
-              color: '#070a13',
-              border: 'none',
-              borderRadius: '20px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 18px rgba(0, 242, 254, 0.4)'
-            },
-            onclick: async (e) => {
-              const btn = e.currentTarget;
-              const val = dictation ? dictation.getText() : textInputArea?.value?.trim();
-              if (!val) return;
-
-              // 1. Play futuristic glass chime & fire button animation
-              CadPlanItemNotes.playHapticChime('commit');
-              btn.classList.add('dr-btn-commit-flash');
-              btn.textContent = '✓ Pinned & Staged!';
-
-              // 2. Commit to persistent ledger
-              await CadPlanItemNotes.addNote(pageId, blockId, val, {
-                dossierId,
-                author: 'Rob Brown',
-                xpath: extraOptions.locator?.xpath || null,
-                cssPath: extraOptions.locator?.cssPath || null,
-                tagName: extraOptions.locator?.tagName || null
-              });
-
-              // 3. Trigger physical ripple effect on target DOM element on page
-              if (extraOptions.targetElement) {
-                extraOptions.targetElement.classList.remove('dr-pulse-highlight');
-                void extraOptions.targetElement.offsetWidth;
-                extraOptions.targetElement.classList.add('dr-pulse-highlight');
-              }
-
-              // 4. Smooth fade out and notify
-              setTimeout(() => {
-                if (dictation) dictation.clearContent();
-                dlg.close();
-                if (onUpdated) onUpdated();
-              }, 350);
-            }
-          }, '⚡ Commit & Pin Directive')
-        ]);
-        wrap.appendChild(actionFooter);
-
-        // Open High-Contrast Dialog with Layered Pop-Out Depth
-        const dlg = UITools.makeDialog({
-          title: `🏛️ Directives Studio • ${blockId}`,
-          size: [640, 580],
-          position: [Math.max(20, (window.innerWidth - 640) / 2), 50],
-          contentElement: wrap,
-          appendTo: hostContainer,
-          onClose: () => {
-            if (dictation) dictation.stopListening();
-          }
-        });
-
-        // Apply Layered Contrast Styling on outer dialog shell
-        if (dlg && dlg.element) {
-          dlg.element.style.background = '#080d1a';
-          dlg.element.style.border = '1.5px solid #00f2fe';
-          dlg.element.style.borderRadius = '14px';
-          dlg.element.style.boxShadow = '0 28px 75px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(0, 242, 254, 0.35), 0 0 40px rgba(0, 242, 254, 0.2)';
-          dlg.element.style.backdropFilter = 'blur(20px)';
+          return dlg;
         }
-
-        return dlg;
-    }
   static async addAIProposal(pageId, blockId, proposalText, options = {}) {
     return await this.addNote(pageId, blockId, proposalText, {
       ...options,
@@ -1094,89 +1361,96 @@ class CadPlanItemNotes {
       return { success: false, channel: 'none' };
     }
 
-  static async getNotesForElement(element, pageId = 'meta', dossierId = 'HomeSetup') {
-      if (!element) return [];
-      const loc = this.generateElementLocator(element);
-      const all = await this.getAllNotes(dossierId);
+  static async getNotesForElement(element, pageId = 'overview', dossierId = null) {
+        if (!element) return [];
+        const resolvedDossier = this._resolveDossierId(dossierId);
+        const loc = this.generateElementLocator(element);
+        const all = await this.getAllNotes(resolvedDossier);
 
-      return all.filter(n => {
-        if (n.dossierId && n.dossierId !== dossierId) return false;
-        // Match by explicit key
-        if (n.blockKey === `${pageId}:${loc.key}`) return true;
-        // Match by exact XPath if present
-        if (loc.xpath && n.xpath && n.xpath === loc.xpath) return true;
-        // Match by CSS path
-        if (loc.cssPath && n.cssPath && n.cssPath === loc.cssPath) return true;
-        return false;
-      });
-    }
-
-  static async resolveNotesFromLlmPayload(rawPayloadText) {
-        if (!rawPayloadText || typeof rawPayloadText !== 'string') return [];
-
-        const resolvedIds = new Set();
-        const testUpdates = [];
-
-        // 1. Full Resolution Tags: <script data-action="resolve-notes" data-notes="note_1,note_2">
-        const resolveRegex = /<(?:script|template)[^>]*?data-action=["'](?:resolve|resolve-notes)["'][^>]*?data-notes=["']([^"']+)["'][^>]*>/gi;
-        let match;
-        while ((match = resolveRegex.exec(rawPayloadText)) !== null) {
-          match[1].split(/[\s,]+/).forEach(id => {
-            if (id.trim()) resolvedIds.add(id.trim());
-          });
-        }
-
-        // 2. Full Resolution HTML Comments: <!-- RESOLVE_NOTE: note_1 --> or <!-- RESOLVED_NOTES: note_1, note_2 -->
-        const commentRegex = /<!--\s*RESOLVE(?:D)?_NOTES?:\s*([^->]+)-->/gi;
-        while ((match = commentRegex.exec(rawPayloadText)) !== null) {
-          match[1].split(/[\s,]+/).forEach(id => {
-            if (id.trim()) resolvedIds.add(id.trim());
-          });
-        }
-
-        // 3. Interactive Test Directive: <script data-action="test-note" data-id="note_123">Instructions...</script>
-        const testNoteRegex = /<script[^>]*?data-action=["']test-note["'][^>]*?data-id=["']([^"']+)["'][^>]*>([\s\S]*?)<\/script>/gi;
-        while ((match = testNoteRegex.exec(rawPayloadText)) !== null) {
-          testUpdates.push({
-            id: match[1].trim(),
-            instructions: match[2].trim()
-          });
-        }
-
-        // Process Full Resolutions
-        for (const id of resolvedIds) {
-          await CadPlanItemNotes.updateNote(id, {
-            status: 'resolved',
-            resolvedTimestamp: Date.now(),
-            resolutionSource: 'llm-patch-applied'
-          });
-        }
-
-        // Process Test Directives
-        for (const item of testUpdates) {
-          await CadPlanItemNotes.updateNote(item.id, {
-            status: 'test_ready',
-            testInstructions: item.instructions,
-            updatedTimestamp: Date.now()
-          });
-        }
-
-        if (resolvedIds.size > 0 || testUpdates.length > 0) {
-          // Trigger live document UI refresh
-          if (globalThis._cadPlanInstance?.reader) {
-            globalThis._cadPlanInstance.reader._updateBlockNoteBadges();
-            globalThis._cadPlanInstance.reader._populateSidePanelNotes();
-          }
-          if (globalThis._cadPlanInstance?.aardvark) {
-            globalThis._cadPlanInstance.aardvark._highlightAnnotatedElements();
-          }
-        }
-
-        return {
-          resolved: Array.from(resolvedIds),
-          testReady: testUpdates.map(t => t.id)
-        };
+        return all.filter(n => {
+          if (n.dossierId && n.dossierId !== resolvedDossier) return false;
+          if (n.blockKey === `${pageId}:${loc.key}`) return true;
+          if (loc.xpath && n.xpath && n.xpath === loc.xpath) return true;
+          if (loc.cssPath && n.cssPath && n.cssPath === loc.cssPath) return true;
+          return false;
+        });
       }
+  static async resolveNotesFromLlmPayload(rawPayloadText) {
+      if (!rawPayloadText || typeof rawPayloadText !== 'string') return [];
+
+      const resolvedIds = new Set();
+      const testUpdates = [];
+
+      const resolveRegex = /<(?:script|template)[^>]*?data-action=["'](?:resolve|resolve-notes)["'][^>]*?data-notes=["']([^"']+)["'][^>]*>/gi;
+      let match;
+      while ((match = resolveRegex.exec(rawPayloadText)) !== null) {
+        match[1].split(/[\s,]+/).forEach(id => {
+          if (id.trim()) resolvedIds.add(id.trim());
+        });
+      }
+
+      const commentRegex = /<!--\s*RESOLVE(?:D)?_NOTES?:\s*([^->]+)-->/gi;
+      while ((match = commentRegex.exec(rawPayloadText)) !== null) {
+        match[1].split(/[\s,]+/).forEach(id => {
+          if (id.trim()) resolvedIds.add(id.trim());
+        });
+      }
+
+      const testNoteRegex = /<script[^>]*?data-action=["']test-note["'][^>]*?data-id=["']([^"']+)["'][^>]*>([\s\S]*?)<\/script>/gi;
+      while ((match = testNoteRegex.exec(rawPayloadText)) !== null) {
+        testUpdates.push({
+          id: match[1].trim(),
+          instructions: match[2].trim()
+        });
+      }
+
+      for (const id of resolvedIds) {
+        await CadPlanItemNotes.updateNote(id, {
+          status: 'resolved',
+          resolvedTimestamp: Date.now(),
+          resolutionSource: 'llm-patch-applied'
+        });
+      }
+
+      for (const item of testUpdates) {
+        await CadPlanItemNotes.updateNote(item.id, {
+          status: 'test_ready',
+          testInstructions: item.instructions,
+          updatedTimestamp: Date.now()
+        });
+      }
+
+      if (resolvedIds.size > 0 || testUpdates.length > 0) {
+        const readers = [
+          globalThis._activeDocumentReader,
+          globalThis._cadPlanInstance?.reader,
+          globalThis._quoraToysAppInstance?.reader,
+          globalThis._economicsInstance?.reader,
+          globalThis._opusInstance?.reader,
+          globalThis._homeSetupInstance?.reader
+        ].filter(Boolean);
+
+        readers.forEach(r => {
+          try { r._updateBlockNoteBadges?.(); } catch (e) {}
+          try { r._populateSidePanelNotes?.(); } catch (e) {}
+        });
+
+        [
+          globalThis._cadPlanInstance?.aardvark,
+          globalThis._quoraToysAppInstance?.aardvark,
+          globalThis._economicsInstance?.aardvark,
+          globalThis._opusInstance?.aardvark,
+          globalThis._homeSetupInstance?.aardvark
+        ].filter(Boolean).forEach(a => {
+          try { a._highlightAnnotatedElements?.(); } catch (e) {}
+        });
+      }
+
+      return {
+        resolved: Array.from(resolvedIds),
+        testReady: testUpdates.map(t => t.id)
+      };
+    }
   static generateSingleNotePrompt(note) {
       if (!note) return '';
 
@@ -1519,6 +1793,23 @@ class CadPlanItemNotes {
       } catch (e) {
         // AudioContext unavailable or blocked by browser gesture policy
       }
+    }
+
+  static _resolveDossierId(explicit = null, hostReader = null) {
+      if (explicit) return explicit;
+      if (hostReader?.options?.dossierId) return hostReader.options.dossierId;
+      if (globalThis._activeDocumentReader?.options?.dossierId) {
+        return globalThis._activeDocumentReader.options.dossierId;
+      }
+      if (hostReader?.brandTitle) return hostReader.brandTitle;
+      if (globalThis._activeDocumentReader?.brandTitle) {
+        return globalThis._activeDocumentReader.brandTitle;
+      }
+      if (typeof window !== 'undefined' && window.location?.pathname) {
+        const segs = window.location.pathname.split('/').filter(Boolean);
+        if (segs.length > 0 && !segs[0].endsWith('.html')) return segs[0];
+      }
+      return 'Document';
     }
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "Library",
-  "version": "1.0.0",
-  "description": "Shared Component & Tool Hub (ThreeJSLoader, UITools, DocumentReader, CommunityOracle, etc.)",
+  "version": "1.0.1",
+  "description": "Shared Component & Tool Hub (ThreeJSLoader, UITools, DocumentReader, CadPlanItemNotes, CadPlanDocumentEditor, CadPlanAardvark, CommunityOracle, etc.)",
   "type": "luno-library",
   "main": [
     "DomBasics.js",
@@ -15,15 +15,16 @@
     "KeyCommandHandler.js",
     "SidePanel.js",
     "CodeMirrorWidget.js",
-    "CommunityOracle.js"
+    "CommunityOracle.js",
+    "CadPlanDataRegistry.js",
+    "CadPlanItemNotes.js",
+    "CadPlanDocumentEditor.js",
+    "CadPlanAardvark.js"
   ],
   "capabilities": {
     "writeFiles": true,
     "runScripts": true,
     "runCommands": true,
     "installDeps": false
-  },
-  "processedCountSinceCheckpoint": 0,
-  "lastCheckpointTime": "2026-11-08T03:37:15.414Z",
-  "pendingCheckpointDescription": "Clean working tree"
+  }
 }

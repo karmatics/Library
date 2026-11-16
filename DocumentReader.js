@@ -18,443 +18,536 @@ class DocumentReader {
   }
 
   _setupStyles() {
-      if (typeof applyCss !== 'function') return;
+        if (typeof applyCss !== 'function') return;
 
-      const css = `
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        const css = `
+          @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-        :root {
-          --dr-bg: #faf7f2;
-          --dr-surface: #ffffff;
-          --dr-text: #1f242e;
-          --dr-text-subtle: #475569;
-          --dr-muted: #64748b;
-          --dr-accent: #0284c7;
-          --dr-accent-soft: rgba(2, 132, 199, 0.08);
-          --dr-border: #e6dfd5;
-          --dr-card-bg: #f3efe7;
-          --dr-quote-bg: #f3efe7;
-          --dr-quote-border: #0284c7;
-          --dr-toolbar-bg: rgba(250, 247, 242, 0.94);
-          --dr-toolbar-border: rgba(0, 0, 0, 0.08);
+          :root {
+            --dr-bg: #faf7f2;
+            --dr-surface: #ffffff;
+            --dr-text: #1f242e;
+            --dr-text-subtle: #475569;
+            --dr-muted: #64748b;
+            --dr-accent: #0284c7;
+            --dr-accent-soft: rgba(2, 132, 199, 0.08);
+            --dr-border: #e6dfd5;
+            --dr-card-bg: #f3efe7;
+            --dr-quote-bg: #f3efe7;
+            --dr-quote-border: #0284c7;
+            --dr-toolbar-bg: rgba(250, 247, 242, 0.94);
+            --dr-toolbar-border: rgba(0, 0, 0, 0.08);
 
-          --cad-cyan: #00f2fe;
-          --cad-cyan-soft: rgba(0, 242, 254, 0.08);
-          --cad-cyan-glow: rgba(0, 242, 254, 0.35);
+            --cad-cyan: #00f2fe;
+            --cad-cyan-soft: rgba(0, 242, 254, 0.08);
+            --cad-cyan-glow: rgba(0, 242, 254, 0.35);
 
-          --dr-font-body: 'Newsreader', 'Lora', Georgia, serif;
-          --dr-font-sans: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
-          --dr-font-mono: 'JetBrains Mono', monospace;
-        }
+            --dr-font-body: 'Newsreader', 'Lora', Georgia, serif;
+            --dr-font-sans: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+            --dr-font-mono: 'JetBrains Mono', monospace;
+          }
 
-        body.theme-dark, .theme-dark {
-          --dr-bg: #090d16;
-          --dr-surface: #0f1624;
-          --dr-text: #f1f5f9;
-          --dr-text-subtle: #94a3b8;
-          --dr-muted: #64748b;
-          --dr-accent: #38bdf8;
-          --dr-accent-soft: rgba(56, 189, 248, 0.1);
-          --dr-border: #1e293b;
-          --dr-card-bg: #111827;
-          --dr-quote-bg: #111827;
-          --dr-quote-border: #38bdf8;
-          --dr-toolbar-bg: rgba(9, 13, 22, 0.95);
-          --dr-toolbar-border: rgba(255, 255, 255, 0.08);
-        }
+          body.theme-dark, .theme-dark {
+            --dr-bg: #090d16;
+            --dr-surface: #0f1624;
+            --dr-text: #f1f5f9;
+            --dr-text-subtle: #94a3b8;
+            --dr-muted: #64748b;
+            --dr-accent: #38bdf8;
+            --dr-accent-soft: rgba(56, 189, 248, 0.1);
+            --dr-border: #1e293b;
+            --dr-card-bg: #111827;
+            --dr-quote-bg: #111827;
+            --dr-quote-border: #38bdf8;
+            --dr-toolbar-bg: rgba(9, 13, 22, 0.95);
+            --dr-toolbar-border: rgba(255, 255, 255, 0.08);
+          }
 
-        .dr-shell {
-          width: 100%;
-          min-height: 100vh;
-          background-color: var(--dr-bg);
-          color: var(--dr-text);
-          font-family: var(--dr-font-body);
-          padding: 72px 20px 140px;
-          box-sizing: border-box;
-          display: flex;
-          justify-content: center;
-          transition: background-color 0.2s ease, color 0.2s ease;
-        }
+          body.theme-blueprint, .theme-blueprint {
+            --dr-bg: #0b192c;
+            --dr-surface: #10233d;
+            --dr-text: #eef6ff;
+            --dr-text-subtle: #a8c7ea;
+            --dr-muted: #6b93c2;
+            --dr-accent: #38bdf8;
+            --dr-accent-soft: rgba(56, 189, 248, 0.14);
+            --dr-border: #1e3a5f;
+            --dr-card-bg: #0f2038;
+            --dr-quote-bg: #0f2038;
+            --dr-quote-border: #00f2fe;
+            --dr-toolbar-bg: rgba(11, 25, 44, 0.95);
+            --dr-toolbar-border: rgba(56, 189, 248, 0.22);
+          }
 
-        .dr-article-container {
-          max-width: 820px;
-          width: 100%;
-          position: relative;
-        }
+          body.theme-phosphor, .theme-phosphor {
+            --dr-bg: #030b05;
+            --dr-surface: #07140a;
+            --dr-text: #d8ffe2;
+            --dr-text-subtle: #7cd896;
+            --dr-muted: #3d8c54;
+            --dr-accent: #10b981;
+            --dr-accent-soft: rgba(16, 185, 129, 0.12);
+            --dr-border: #12361c;
+            --dr-card-bg: #061309;
+            --dr-quote-bg: #061309;
+            --dr-quote-border: #10b981;
+            --dr-toolbar-bg: rgba(3, 11, 5, 0.95);
+            --dr-toolbar-border: rgba(16, 185, 129, 0.25);
+            --cad-cyan: #34d399;
+          }
 
-        .dr-nav-bar {
-          position: fixed;
-          top: 0; left: 0; width: 100%; height: 58px;
-          background: var(--dr-toolbar-bg);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border-bottom: 1px solid var(--dr-toolbar-border);
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 0 16px; box-sizing: border-box; z-index: 1000; gap: 10px;
-        }
+          .dr-shell {
+            width: 100%;
+            min-height: 100vh;
+            background-color: var(--dr-bg);
+            color: var(--dr-text);
+            font-family: var(--dr-font-body);
+            padding: 72px 20px 140px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            transition: background-color 0.2s ease, color 0.2s ease;
+          }
 
-        .dr-brand {
-          font-family: var(--dr-font-sans);
-          font-size: 0.88rem; font-weight: 800;
-          letter-spacing: 0.06em; text-transform: uppercase;
-          color: var(--cad-cyan);
-          display: flex; align-items: center; gap: 8px;
-          flex-shrink: 0; user-select: none; cursor: pointer;
-          text-shadow: 0 0 12px rgba(0, 242, 254, 0.4);
-        }
+          .dr-article-container {
+            max-width: 820px;
+            width: 100%;
+            position: relative;
+          }
 
-        .dr-tab-btn {
-          background: transparent; border: none;
-          color: var(--dr-text-subtle);
-          font-family: var(--dr-font-sans);
-          font-size: 0.78rem; font-weight: 600;
-          padding: 5px 12px; border-radius: 16px;
-          cursor: pointer; white-space: nowrap; transition: all 0.15s ease;
-        }
-        .dr-tab-btn:hover { color: var(--dr-text); background: rgba(255, 255, 255, 0.06); }
-        .dr-tab-btn.active {
-          background: linear-gradient(135deg, #0284c7 0%, #00f2fe 100%);
-          color: #070a13; font-weight: 800;
-          box-shadow: 0 2px 10px rgba(0, 242, 254, 0.4);
-        }
+          .dr-nav-bar {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 58px;
+            background: var(--dr-toolbar-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--dr-toolbar-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px; box-sizing: border-box; z-index: 1000; gap: 10px;
+          }
 
-        .dr-nav-btn {
-          background: rgba(255, 255, 255, 0.04); color: var(--dr-text);
-          border: 1px solid var(--dr-border);
-          padding: 5px 12px; border-radius: 16px;
-          font-family: var(--dr-font-sans); font-size: 0.78rem; font-weight: 700;
-          cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-          transition: all 0.15s ease;
-        }
-        .dr-nav-btn:hover {
-          border-color: var(--cad-cyan); color: #fff;
-          box-shadow: 0 0 10px rgba(0, 242, 254, 0.25);
-        }
-        .dr-nav-btn.primary {
-          background: linear-gradient(135deg, #0284c7 0%, #00f2fe 100%);
-          color: #070a13; border: none; font-weight: 800;
-        }
+          .dr-brand {
+            font-family: var(--dr-font-sans);
+            font-size: 0.88rem; font-weight: 800;
+            letter-spacing: 0.06em; text-transform: uppercase;
+            color: var(--cad-cyan);
+            display: flex; align-items: center; gap: 8px;
+            flex-shrink: 0; user-select: none; cursor: pointer;
+            text-shadow: 0 0 12px rgba(0, 242, 254, 0.4);
+          }
 
-        .dr-progress-track {
-          position: fixed; top: 58px; left: 0; width: 100%; height: 3px;
-          background: transparent; z-index: 9999;
-        }
-        .dr-progress-bar {
-          height: 100%; width: 0%;
-          background: linear-gradient(90deg, #38bdf8, #00f2fe, #c084fc);
-          box-shadow: 0 0 10px rgba(0, 242, 254, 0.6);
-          transition: width 0.08s ease-out;
-        }
+          .dr-tab-btn {
+            background: transparent; border: none;
+            color: var(--dr-text-subtle);
+            font-family: var(--dr-font-sans);
+            font-size: 0.78rem; font-weight: 600;
+            padding: 5px 12px; border-radius: 16px;
+            cursor: pointer; white-space: nowrap; transition: all 0.15s ease;
+          }
+          .dr-tab-btn:hover { color: var(--dr-text); background: rgba(255, 255, 255, 0.06); }
+          .dr-tab-btn.active {
+            background: linear-gradient(135deg, #0284c7 0%, #00f2fe 100%);
+            color: #070a13; font-weight: 800;
+            box-shadow: 0 2px 10px rgba(0, 242, 254, 0.4);
+          }
 
-        .dr-article-header {
-          margin-bottom: 44px; padding-bottom: 24px;
-          border-bottom: 1.5px solid var(--dr-border);
-        }
-        .dr-kicker {
-          font-family: 'Cinzel', serif;
-          font-size: 0.82rem; font-weight: 900;
-          letter-spacing: 0.16em; text-transform: uppercase;
-          color: var(--cad-cyan); margin-bottom: 12px;
-          text-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
-        }
-        .dr-title {
-          font-family: var(--dr-font-sans);
-          font-size: 2.45rem; font-weight: 800; line-height: 1.18;
-          letter-spacing: -0.03em; margin: 0 0 14px 0; color: var(--dr-text);
-        }
-        .dr-subtitle {
-          font-size: 1.2rem; font-style: italic; color: var(--dr-text-subtle);
-          line-height: 1.5; margin: 0; font-family: var(--dr-font-body);
-        }
+          .dr-nav-btn {
+            background: rgba(255, 255, 255, 0.04); color: var(--dr-text);
+            border: 1px solid var(--dr-border);
+            padding: 5px 12px; border-radius: 16px;
+            font-family: var(--dr-font-sans); font-size: 0.78rem; font-weight: 700;
+            cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+            transition: all 0.15s ease;
+          }
+          .dr-nav-btn:hover {
+            border-color: var(--cad-cyan); color: #fff;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.25);
+          }
+          .dr-nav-btn.primary {
+            background: linear-gradient(135deg, #0284c7 0%, #00f2fe 100%);
+            color: #070a13; border: none; font-weight: 800;
+          }
 
-        .dr-section-divider {
-          margin: 48px 0 24px 0; padding-top: 28px;
-          border-top: 1px solid var(--dr-border);
-        }
-        .dr-section-part {
-          font-family: var(--dr-font-sans); font-size: 0.74rem; font-weight: 800;
-          text-transform: uppercase; letter-spacing: 0.14em;
-          color: var(--cad-cyan); margin-bottom: 6px;
-        }
-        .dr-section-title {
-          font-family: var(--dr-font-sans); font-size: 1.6rem; font-weight: 800;
-          letter-spacing: -0.025em; color: var(--dr-text); margin: 0 0 20px 0;
-        }
+          .dr-progress-track {
+            position: fixed; top: 58px; left: 0; width: 100%; height: 3px;
+            background: transparent; z-index: 9999;
+          }
+          .dr-progress-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #38bdf8, #00f2fe, #c084fc);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.6);
+            transition: width 0.08s ease-out;
+          }
 
-        .dr-block-wrapper {
-          position: relative; margin: 18px 0; padding: 6px 12px;
-          border-radius: 8px; transition: all 0.18s ease; cursor: pointer;
-        }
-        .dr-block-wrapper:hover {
-          background: var(--cad-cyan-soft);
-        }
-        .dr-block-wrapper.block-selected {
-          background: var(--cad-cyan-soft);
-          box-shadow: inset 3.5px 0 0 var(--cad-cyan), 0 0 20px rgba(0, 242, 254, 0.15);
-        }
+          .dr-article-header {
+            margin-bottom: 44px; padding-bottom: 24px;
+            border-bottom: 1.5px solid var(--dr-border);
+          }
+          .dr-kicker {
+            font-family: 'Cinzel', serif;
+            font-size: 0.82rem; font-weight: 900;
+            letter-spacing: 0.16em; text-transform: uppercase;
+            color: var(--cad-cyan); margin-bottom: 12px;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+          }
+          .dr-title {
+            font-family: var(--dr-font-sans);
+            font-size: 2.45rem; font-weight: 800; line-height: 1.18;
+            letter-spacing: -0.03em; margin: 0 0 14px 0; color: var(--dr-text);
+          }
+          .dr-subtitle {
+            font-size: 1.2rem; font-style: italic; color: var(--dr-text-subtle);
+            line-height: 1.5; margin: 0; font-family: var(--dr-font-body);
+          }
 
-        .dr-block-p-wrap {
-          margin: 12px 0;
-        }
-        .dr-block-p-wrap:first-child { margin-top: 0; }
-        .dr-block-p-wrap:last-child { margin-bottom: 0; }
+          .dr-section-divider {
+            margin: 48px 0 24px 0; padding-top: 28px;
+            border-top: 1px solid var(--dr-border);
+          }
+          .dr-section-part {
+            font-family: var(--dr-font-sans); font-size: 0.74rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.14em;
+            color: var(--cad-cyan); margin-bottom: 6px;
+          }
+          .dr-section-title {
+            font-family: var(--dr-font-sans); font-size: 1.6rem; font-weight: 800;
+            letter-spacing: -0.025em; color: var(--dr-text); margin: 0 0 20px 0;
+          }
 
-        .dr-block-p {
-          font-size: 1.2rem; line-height: 1.8; margin: 0 0 12px 0; color: var(--dr-text);
-        }
-        .dr-block-p:last-child { margin-bottom: 0; }
+          .dr-block-wrapper {
+            position: relative; margin: 18px 0; padding: 6px 12px;
+            border-radius: 8px; transition: all 0.18s ease; cursor: pointer;
+          }
+          .dr-block-wrapper:hover {
+            background: var(--cad-cyan-soft);
+          }
+          .dr-block-wrapper.block-selected {
+            background: var(--cad-cyan-soft);
+            box-shadow: inset 3.5px 0 0 var(--cad-cyan), 0 0 20px rgba(0, 242, 254, 0.15);
+          }
+          .dr-component-mount-wrap {
+            padding: 4px;
+            cursor: default;
+          }
+          .dr-component-mount-wrap:hover {
+            background: transparent;
+          }
 
-        .dr-content-list {
-          margin: 10px 0 14px 22px;
-          padding: 0;
-        }
-        .dr-content-list-item {
-          font-size: 1.15rem;
-          line-height: 1.7;
-          margin: 6px 0;
-          color: var(--dr-text);
-        }
-        .dr-sidebar-body .dr-content-list-item {
-          font-size: 1.02rem;
-          line-height: 1.6;
-          color: var(--dr-text-subtle);
-        }
+          .dr-block-p-wrap {
+            margin: 12px 0;
+          }
+          .dr-block-p-wrap:first-child { margin-top: 0; }
+          .dr-block-p-wrap:last-child { margin-bottom: 0; }
 
-        .dr-inline-code {
-          background: rgba(0, 242, 254, 0.12);
-          color: var(--cad-cyan);
-          border: 1px solid rgba(0, 242, 254, 0.25);
-          border-radius: 4px;
-          padding: 1px 6px;
-          font-family: var(--dr-font-mono);
-          font-size: 0.9em;
-        }
-        .dr-inline-strong {
-          font-weight: 700;
-          color: var(--dr-text);
-        }
-        .dr-inline-em {
-          font-style: italic;
-        }
+          .dr-block-p {
+            font-size: 1.2rem; line-height: 1.8; margin: 0 0 12px 0; color: var(--dr-text);
+          }
+          .dr-block-p:last-child { margin-bottom: 0; }
 
-        .dr-block-quote {
-          margin: 26px 0; padding: 16px 22px;
-          border-left: 3.5px solid var(--dr-quote-border);
-          font-style: italic; font-size: 1.28rem; line-height: 1.55;
-          color: var(--dr-text); background: var(--dr-quote-bg);
-          border-radius: 0 10px 10px 0;
-        }
+          .dr-content-list {
+            margin: 10px 0 14px 22px;
+            padding: 0;
+          }
+          .dr-content-list-item {
+            font-size: 1.15rem;
+            line-height: 1.7;
+            margin: 6px 0;
+            color: var(--dr-text);
+          }
+          .dr-sidebar-body .dr-content-list-item {
+            font-size: 1.02rem;
+            line-height: 1.6;
+            color: var(--dr-text-subtle);
+          }
 
-        .dr-block-sidebar {
-          margin: 26px 0; padding: 18px 22px;
-          background: var(--dr-card-bg);
-          border-left: 4px solid var(--cad-cyan);
-          border-top: 1px solid var(--dr-border);
-          border-right: 1px solid var(--dr-border);
-          border-bottom: 1px solid var(--dr-border);
-          border-radius: 0 12px 12px 0;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-        }
-        .dr-sidebar-kicker {
-          font-family: var(--dr-font-sans); font-size: 0.74rem; font-weight: 800;
-          letter-spacing: 0.14em; text-transform: uppercase;
-          color: var(--cad-cyan); margin-bottom: 6px;
-        }
-        .dr-sidebar-title {
-          font-family: var(--dr-font-sans); font-size: 1.15rem; font-weight: 700;
-          color: var(--dr-text); margin-bottom: 8px;
-        }
-        .dr-sidebar-body {
-          font-size: 1.05rem; line-height: 1.65; color: var(--dr-text-subtle);
-        }
+          .dr-inline-code {
+            background: rgba(0, 242, 254, 0.12);
+            color: var(--cad-cyan);
+            border: 1px solid rgba(0, 242, 254, 0.25);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-family: var(--dr-font-mono);
+            font-size: 0.9em;
+          }
+          .dr-inline-strong {
+            font-weight: 700;
+            color: var(--dr-text);
+          }
+          .dr-inline-em {
+            font-style: italic;
+          }
 
-        .dr-hover-action-pill {
-          position: absolute;
-          top: -12px;
-          right: 12px;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          background: rgba(15, 23, 42, 0.94);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(0, 242, 254, 0.35);
-          border-radius: 20px;
-          padding: 2px 8px;
-          box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 242, 254, 0.2);
-          opacity: 0;
-          pointer-events: none;
-          transform: translateY(4px);
-          transition: opacity 0.15s ease, transform 0.15s ease;
-          z-index: 50;
-        }
-        .dr-block-wrapper:hover .dr-hover-action-pill,
-        .dr-block-wrapper.block-selected .dr-hover-action-pill {
-          opacity: 1;
-          pointer-events: auto;
-          transform: translateY(0);
-        }
-        .dr-pill-btn {
-          background: transparent; border: none;
-          color: var(--dr-text-subtle); cursor: pointer;
-          font-family: var(--dr-font-sans); font-size: 0.7rem; font-weight: 700;
-          padding: 3px 6px; border-radius: 12px; display: inline-flex;
-          align-items: center; gap: 4px; transition: all 0.12s ease;
-        }
-        .dr-pill-btn:hover {
-          color: #fff; background: rgba(0, 242, 254, 0.2);
-        }
-      `;
+          .dr-block-quote {
+            margin: 26px 0; padding: 16px 22px;
+            border-left: 3.5px solid var(--dr-quote-border);
+            font-style: italic; font-size: 1.28rem; line-height: 1.55;
+            color: var(--dr-text); background: var(--dr-quote-bg);
+            border-radius: 0 10px 10px 0;
+          }
 
-      applyCss(css, 'DocumentReaderStyles');
-    }
+          .dr-block-sidebar {
+            margin: 26px 0; padding: 18px 22px;
+            background: var(--dr-card-bg);
+            border-left: 4px solid var(--cad-cyan);
+            border-top: 1px solid var(--dr-border);
+            border-right: 1px solid var(--dr-border);
+            border-bottom: 1px solid var(--dr-border);
+            border-radius: 0 12px 12px 0;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+          }
+          .dr-sidebar-kicker {
+            font-family: var(--dr-font-sans); font-size: 0.74rem; font-weight: 800;
+            letter-spacing: 0.14em; text-transform: uppercase;
+            color: var(--cad-cyan); margin-bottom: 6px;
+          }
+          .dr-sidebar-title {
+            font-family: var(--dr-font-sans); font-size: 1.15rem; font-weight: 700;
+            color: var(--dr-text); margin-bottom: 8px;
+          }
+          .dr-sidebar-body {
+            font-size: 1.05rem; line-height: 1.65; color: var(--dr-text-subtle);
+          }
+
+          .dr-hover-action-pill {
+            position: absolute;
+            top: -12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 242, 254, 0.35);
+            border-radius: 20px;
+            padding: 2px 8px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 242, 254, 0.2);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(4px);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 50;
+          }
+          .dr-block-wrapper:hover .dr-hover-action-pill,
+          .dr-block-wrapper.block-selected .dr-hover-action-pill,
+          .dr-block-wrapper.has-attached-notes .dr-hover-action-pill {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+          }
+          .dr-pill-btn {
+            background: transparent; border: none;
+            color: var(--dr-text-subtle); cursor: pointer;
+            font-family: var(--dr-font-sans); font-size: 0.7rem; font-weight: 700;
+            padding: 3px 6px; border-radius: 12px; display: inline-flex;
+            align-items: center; gap: 4px; transition: all 0.12s ease;
+          }
+          .dr-pill-btn:hover {
+            color: #fff; background: rgba(0, 242, 254, 0.2);
+          }
+          .dr-pill-btn.has-notes {
+            color: var(--cad-cyan); font-weight: 800;
+          }
+
+          .dr-notes-navigator-dock {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9990;
+            background: rgba(9, 13, 22, 0.96);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid #00f2fe;
+            border-radius: 30px;
+            padding: 6px 14px;
+            box-shadow: 0 14px 45px rgba(0, 0, 0, 0.85), 0 0 24px rgba(0, 242, 254, 0.35);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: calc(100vw - 24px);
+            overflow-x: auto;
+            font-family: var(--dr-font-sans);
+            font-size: 11.5px;
+            color: #f8fafc;
+          }
+
+          @media (max-width: 720px) {
+            .dr-brand span:last-child { display: none; }
+            .dr-nav-bar { padding: 0 10px; gap: 6px; }
+            .dr-shell { padding: 70px 12px 130px; }
+            .dr-title { font-size: 1.75rem; }
+          }
+        `;
+
+        applyCss(css, 'DocumentReaderStyles');
+      }
+
   async init() {
-      this.container.innerHTML = '';
+        this.container.innerHTML = '';
+        globalThis._activeDocumentReader = this;
 
-      document.documentElement.style.overflowY = 'auto';
-      document.body.style.overflowY = 'auto';
-      document.documentElement.style.height = 'auto';
-      document.body.style.height = 'auto';
+        document.documentElement.style.overflowY = 'auto';
+        document.body.style.overflowY = 'auto';
+        document.documentElement.style.height = 'auto';
+        document.body.style.height = 'auto';
 
-      if (this.container && this.container.style) {
-        this.container.style.overflow = 'visible';
-        this.container.style.height = 'auto';
-        this.container.style.minHeight = '100vh';
-      }
-
-      const savedTheme = localStorage.getItem('dr_theme') || 'dark';
-      if (savedTheme === 'dark') {
-        document.body.classList.add('theme-dark');
-      } else {
-        document.body.classList.remove('theme-dark');
-      }
-
-      this._renderChrome();
-      this.renderCurrentDocument();
-
-      this._routeHandler = () => this._handleUrlRouting();
-      window.addEventListener('hashchange', this._routeHandler, { passive: true });
-      window.addEventListener('popstate', this._routeHandler, { passive: true });
-
-      this._keyboardTourHandler = (e) => {
-        const tag = e.target?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
-
-        if (e.key === '[' || e.key === '{') {
-          const prevBtn = document.querySelector('#dr-notes-nav-dock button:first-child');
-          if (prevBtn) {
-            e.preventDefault();
-            prevBtn.click();
-          }
-        } else if (e.key === ']' || e.key === '}') {
-          const nextBtn = document.querySelectorAll('#dr-notes-nav-dock button')[1];
-          if (nextBtn) {
-            e.preventDefault();
-            nextBtn.click();
-          }
-        } else if ((e.altKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
-          const curBlock = document.querySelector('.dr-block-wrapper.block-selected') ||
-                           document.querySelector('.dr-block-wrapper:hover');
-          if (curBlock) {
-            e.preventDefault();
-            const noteBtn = curBlock.querySelector('.dr-gutter-note-btn');
-            if (noteBtn) noteBtn.click();
-          }
-        } else if (e.key === 'Escape') {
-          const menu = document.getElementById('dr-header-overflow-menu');
-          if (menu) menu.remove();
+        if (this.container && this.container.style) {
+          this.container.style.overflow = 'visible';
+          this.container.style.height = 'auto';
+          this.container.style.minHeight = '100vh';
         }
-      };
-      window.addEventListener('keydown', this._keyboardTourHandler);
 
-      const parsed = this._parseUrlRoute();
-      if (parsed.anchorId) {
-        setTimeout(() => this.highlightTarget(parsed.anchorId), 300);
+        const savedTheme = localStorage.getItem('dr_theme') || 'dark';
+        document.body.classList.remove('theme-dark', 'theme-blueprint', 'theme-phosphor');
+        if (savedTheme === 'blueprint') {
+          document.body.classList.add('theme-blueprint');
+        } else if (savedTheme === 'phosphor') {
+          document.body.classList.add('theme-phosphor');
+        } else {
+          document.body.classList.add('theme-dark');
+        }
+
+        this._renderChrome();
+        this.toggleTheme(savedTheme);
+        this.renderCurrentDocument();
+
+        const ItemNotes = this.itemNotes;
+        if (ItemNotes && typeof ItemNotes.subscribe === 'function') {
+          this._unsubNotes = ItemNotes.subscribe(() => {
+            this._updateBlockNoteBadges();
+          });
+        }
+
+        this._routeHandler = () => this._handleUrlRouting();
+        window.addEventListener('hashchange', this._routeHandler, { passive: true });
+        window.addEventListener('popstate', this._routeHandler, { passive: true });
+
+        this._keyboardTourHandler = (e) => {
+          const tag = e.target?.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+
+          if (e.key === '[' || e.key === '{') {
+            const prevBtn = document.querySelector('#dr-notes-nav-dock button:first-child');
+            if (prevBtn) {
+              e.preventDefault();
+              prevBtn.click();
+            }
+          } else if (e.key === ']' || e.key === '}') {
+            const nextBtn = document.querySelectorAll('#dr-notes-nav-dock button')[1];
+            if (nextBtn) {
+              e.preventDefault();
+              nextBtn.click();
+            }
+          } else if ((e.altKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+            const curBlock = document.querySelector('.dr-block-wrapper.block-selected') ||
+                             document.querySelector('.dr-block-wrapper:hover');
+            if (curBlock) {
+              e.preventDefault();
+              const noteBtn = curBlock.querySelector('.dr-gutter-note-btn');
+              if (noteBtn) noteBtn.click();
+            }
+          } else if (e.key === 'Escape') {
+            const menu = document.getElementById('dr-header-overflow-menu');
+            if (menu) menu.remove();
+          }
+        };
+        window.addEventListener('keydown', this._keyboardTourHandler);
+
+        const parsed = this._parseUrlRoute();
+        if (parsed.anchorId) {
+          setTimeout(() => this.highlightTarget(parsed.anchorId), 300);
+        }
       }
-    }
 
   _renderChrome() {
       this.navPageButtons = {};
+      const resolveActiveSidePanel = () => {
+        return this.options.sidePanel || globalThis._portalInstance?.sidePanel || globalThis._economicsInstance?.sidePanel || globalThis._quoraToysAppInstance?.sidePanel ||
+          globalThis._cadPlanInstance?.sidePanel || globalThis._homeSetupInstance?.sidePanel || globalThis._opusInstance?.sidePanel ||
+          this.navSidePanel || null;
+      };
 
       const sidePanelBtn = makeElement('button', {
-        className: 'dr-nav-btn',
-        id: 'dr-btn-sidepanel-toggle',
-        title: 'Toggle Navigation & Chapter Outline Sidebar',
-        style: {
-          padding: '5px 12px',
-          fontSize: '0.78rem',
-          fontWeight: '800',
-          color: '#00f2fe',
-          borderColor: 'rgba(0, 242, 254, 0.45)',
-          background: 'rgba(0, 242, 254, 0.08)',
-          borderRadius: '20px'
-        },
+        className: 'dr-nav-btn', id: 'dr-btn-sidepanel-toggle', title: 'Toggle Navigation & Chapter Outline Sidebar',
+        style: { padding: '5px 12px', fontSize: '0.78rem', fontWeight: '800', color: '#00f2fe', borderColor: 'rgba(0, 242, 254, 0.45)', background: 'rgba(0, 242, 254, 0.08)', borderRadius: '20px' },
         onclick: () => {
-          if (globalThis._economicsInstance?.sidePanel) {
-            globalThis._economicsInstance.sidePanel.toggle(!globalThis._economicsInstance.sidePanel.isOpen);
-          } else {
-            this.toggleNavigationSidePanel();
-          }
+          const sp = resolveActiveSidePanel();
+          if (sp && typeof sp.toggle === 'function') sp.toggle(!sp.isOpen);
+          else this.toggleNavigationSidePanel();
         }
       }, '☰ Chapters');
 
       this.activeChapterBreadcrumb = makeElement('div', {
         id: 'dr-active-chapter-breadcrumb',
-        style: {
-          fontFamily: 'var(--dr-font-sans)',
-          fontSize: '0.82rem',
-          fontWeight: '700',
-          color: 'var(--dr-text-subtle)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          flex: 1,
-          padding: '0 8px',
-          userSelect: 'none'
-        }
-      }, this.pages.find(p => p.id === this.currentPageId)?.title || 'The Robot Dividend');
+        style: { fontFamily: 'var(--dr-font-sans)', fontSize: '0.82rem', fontWeight: '700', color: 'var(--dr-text-subtle)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, padding: '0 8px', userSelect: 'none' }
+      }, this.pages.find(p => p.id === this.currentPageId)?.title || this.brandTitle);
 
-      const exportMdBtn = makeElement('button', {
-        className: 'dr-nav-btn',
-        id: 'dr-btn-export-markdown',
-        title: 'Extract Complete Treatise as Markdown [Clipboard & Download]',
-        style: {
-          padding: '5px 12px',
-          fontSize: '0.78rem',
-          fontWeight: '800',
-          color: '#00f2fe',
-          borderColor: 'rgba(0, 242, 254, 0.45)',
-          background: 'rgba(0, 242, 254, 0.08)',
-          borderRadius: '16px'
-        },
+      const rightControls = [];
+      if (this.itemNotes && typeof this.itemNotes.openPromptBuilderDialog === 'function') {
+        this.directivesNavBtn = makeElement('button', {
+          className: 'dr-nav-btn', id: 'dr-btn-directives-compile', title: 'View & Compile Living Directives',
+          style: { padding: '5px 11px', fontSize: '0.76rem', fontWeight: '800', color: '#d2a8ff', borderColor: 'rgba(130, 87, 229, 0.55)', background: 'rgba(130, 87, 229, 0.14)', borderRadius: '16px' },
+          onclick: () => this.itemNotes.openPromptBuilderDialog(this)
+        }, '⚡ Directives');
+        rightControls.push(this.directivesNavBtn);
+      }
+
+      rightControls.push(makeElement('button', {
+        className: 'dr-nav-btn', id: 'dr-btn-clip-notes', title: 'Copy all attached notes + document references directly to clipboard',
+        style: { padding: '5px 10px', fontSize: '0.76rem', fontWeight: '800', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.45)', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '16px' },
+        onclick: (e) => this.copyNotesBundle(e.currentTarget)
+      }, '📋 Clip Notes'));
+
+      if (this.documentEditor && typeof this.documentEditor.openRevisionManager === 'function') {
+        const dossierId = this.options.dossierId || this.brandTitle;
+        rightControls.push(makeElement('button', {
+          className: 'dr-nav-btn', id: 'dr-btn-revisions-manager', title: 'View & Compile In-Situ Text Revisions',
+          style: { padding: '5px 10px', fontSize: '0.76rem', fontWeight: '700', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.45)', background: 'rgba(245, 158, 11, 0.08)', borderRadius: '16px' },
+          onclick: () => this.documentEditor.openRevisionManager(() => this.renderCurrentDocument(), dossierId)
+        }, '✏️ Revisions'));
+      }
+
+      if (typeof CadPlanAardvark !== 'undefined') {
+        rightControls.push(makeElement('button', {
+          className: 'dr-nav-btn', id: 'dr-btn-aardvark-toggle', title: 'Toggle Aardvark In-Situ Element Note Picker',
+          style: { padding: '5px 10px', fontSize: '0.76rem', fontWeight: '700', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.45)', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '16px' },
+          onclick: (e) => {
+            const aard = this.aardvark || globalThis._portalInstance?.aardvark || globalThis._quoraToysAppInstance?.aardvark || globalThis._cadPlanInstance?.aardvark ||
+              globalThis._economicsInstance?.aardvark || globalThis._homeSetupInstance?.aardvark || globalThis._opusInstance?.aardvark ||
+              (this._ownAardvark ||= (() => { const a = new CadPlanAardvark({ container: this.container, dossierId: this.options.dossierId || this.brandTitle, documentReader: this }); a.init(); return a; })());
+            aard.toggle();
+            e.currentTarget.style.background = aard.isActive ? '#065f46' : 'rgba(16, 185, 129, 0.08)';
+          }
+        }, '🔍 Inspect'));
+      }
+
+      rightControls.push(makeElement('button', {
+        className: 'dr-nav-btn', id: 'dr-btn-export-markdown', title: 'Extract Complete Document as Markdown',
+        style: { padding: '5px 11px', fontSize: '0.76rem', fontWeight: '800', color: '#00f2fe', borderColor: 'rgba(0, 242, 254, 0.45)', background: 'rgba(0, 242, 254, 0.08)', borderRadius: '16px' },
         onclick: () => this.showExportDialog()
-      }, '📤 Export MD');
+      }, '📤 Export MD'));
 
-      const themeBtn = makeElement('button', {
-        className: 'dr-nav-btn',
-        title: 'Toggle Dark/Light Theme',
+      rightControls.push(makeElement('button', {
+        className: 'dr-nav-btn', title: 'Toggle Dark/Light Theme',
         style: { padding: '5px 10px', fontSize: '0.8rem', borderRadius: '16px' },
         onclick: () => this.toggleTheme()
-      }, '🌓');
+      }, '🌓'));
 
       this.navBar = makeElement('nav', { className: 'dr-nav-bar' }, [
         makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [
           sidePanelBtn,
-          makeElement('div', {
-            className: 'dr-brand',
-            onclick: () => this.switchPage(this.pages[0]?.id)
-          }, [
+          makeElement('div', { className: 'dr-brand', onclick: () => this.switchPage(this.pages[0]?.id) }, [
             makeElement('span', { style: { fontSize: '1.1rem' } }, this.brandIcon),
             makeElement('span', { style: { letterSpacing: '0.04em' } }, this.brandTitle)
           ])
         ]),
         this.activeChapterBreadcrumb,
-        makeElement('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } }, [
-          exportMdBtn,
-          themeBtn
-        ])
+        makeElement('div', { style: { display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' } }, rightControls)
       ]);
       document.body.appendChild(this.navBar);
+
+      if (typeof SensitiveContextGate !== 'undefined') SensitiveContextGate.syncToolbarButton(this);
 
       this.progressTrack = makeElement('div', { className: 'dr-progress-track' });
       this.progressBar = makeElement('div', { className: 'dr-progress-bar' });
@@ -463,68 +556,31 @@ class DocumentReader {
 
       this._scrollHandler = () => {
         const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-        if (maxScroll > 0) {
-          const pct = Math.min(100, Math.max(0, (window.scrollY / maxScroll) * 100));
-          this.progressBar.style.width = `${pct}%`;
-        }
+        if (maxScroll > 0) this.progressBar.style.width = `${Math.min(100, Math.max(0, (window.scrollY / maxScroll) * 100))}%`;
       };
       window.addEventListener('scroll', this._scrollHandler, { passive: true });
 
-      // Fluid reading shell: centered in available canvas without double-margin waste
       this.shell = makeElement('div', {
         className: 'dr-shell',
-        style: {
-          width: '100%',
-          minHeight: '100vh',
-          boxSizing: 'border-box',
-          display: 'flex',
-          justifyContent: 'center',
-          padding: '76px 20px 140px',
-          transition: 'margin-left 0.25s cubic-bezier(0.2, 0.0, 0.2, 1), width 0.25s cubic-bezier(0.2, 0.0, 0.2, 1)'
-        }
+        style: { width: '100%', minHeight: '100vh', boxSizing: 'border-box', display: 'flex', justifyContent: 'center', padding: '76px 20px 140px', transition: 'margin-left 0.25s cubic-bezier(0.2, 0.0, 0.2, 1), width 0.25s cubic-bezier(0.2, 0.0, 0.2, 1)' }
       });
-
-      this.articleContainer = makeElement('div', {
-        className: 'dr-article-container',
-        style: {
-          width: '100%',
-          maxWidth: '820px',
-          position: 'relative'
-        }
-      });
-
+      this.articleContainer = makeElement('div', { className: 'dr-article-container', style: { width: '100%', maxWidth: '820px', position: 'relative' } });
       this.shell.appendChild(this.articleContainer);
       this.container.appendChild(this.shell);
 
-      // Sync layout safe area with SidePanel changes: avoid double margin if parent is offset
       this._safeAreaSync = (e) => {
-        const isMobile = window.innerWidth < 860;
-        const left = isMobile ? 0 : (e.detail?.left || 0);
-
-        if (this.navBar) {
-          this.navBar.style.left = `${left}px`;
-          this.navBar.style.width = left > 0 ? `calc(100% - ${left}px)` : '100%';
-        }
-        if (this.progressTrack) {
-          this.progressTrack.style.left = `${left}px`;
-          this.progressTrack.style.width = left > 0 ? `calc(100% - ${left}px)` : '100%';
-        }
+        const left = (window.innerWidth < 860) ? 0 : (e.detail?.left || 0);
+        if (this.navBar) { this.navBar.style.left = `${left}px`; this.navBar.style.width = left > 0 ? `calc(100% - ${left}px)` : '100%'; }
+        if (this.progressTrack) { this.progressTrack.style.left = `${left}px`; this.progressTrack.style.width = left > 0 ? `calc(100% - ${left}px)` : '100%'; }
         if (this.shell) {
-          const parentOffset = parseFloat(this.container?.style?.marginLeft || '0');
-          const remainingOffset = Math.max(0, left - parentOffset);
-          this.shell.style.marginLeft = `${remainingOffset}px`;
-          this.shell.style.width = remainingOffset > 0 ? `calc(100% - ${remainingOffset}px)` : '100%';
+          const rem = Math.max(0, left - parseFloat(this.container?.style?.marginLeft || '0'));
+          this.shell.style.marginLeft = `${rem}px`;
+          this.shell.style.width = rem > 0 ? `calc(100% - ${rem}px)` : '100%';
         }
       };
       window.addEventListener('layout-safe-area-change', this._safeAreaSync);
-
-      const isMobile = window.innerWidth < 860;
-      const initialLeft = (!isMobile && typeof SidePanel !== 'undefined' && SidePanel.getInstances()?.left?.isOpen)
-        ? (SidePanel.getInstances().left.width || 280)
-        : 0;
-      if (initialLeft > 0) {
-        this._safeAreaSync({ detail: { left: initialLeft } });
-      }
+      const initLeft = (window.innerWidth >= 860 && typeof SidePanel !== 'undefined' && SidePanel.getInstances()?.left?.isOpen) ? (SidePanel.getInstances().left.width || 280) : 0;
+      if (initLeft > 0) this._safeAreaSync({ detail: { left: initLeft } });
     }
   getCurrentDoc() {
     const pageCfg = this.pages.find((p) => p.id === this.currentPageId) || this.pages[0];
@@ -532,179 +588,137 @@ class DocumentReader {
   }
 
   renderCurrentDocument() {
-      // 1. Cleanly unregister all active WebGL instances and release contexts before clearing DOM
-      if (typeof CadStudioDemoComponent !== 'undefined' && CadStudioDemoComponent._instances) {
-        this.articleContainer.querySelectorAll('[id^="accucad-mount-"], [id^="comp-mount-"]').forEach(el => {
-          if (el._accuCadId) {
-            CadStudioDemoComponent.unregisterInstance(el._accuCadId);
-          }
-        });
-      }
-
-      this.articleContainer.innerHTML = '';
-      const doc = this.getCurrentDoc();
-      if (!doc) {
-        this.articleContainer.innerHTML = '<div style="padding:2rem;text-align:center;">No document content found.</div>';
-        return;
-      }
-
-      const meta = doc.getMeta ? doc.getMeta() : { kicker: 'Dossier', title: 'Document', subtitle: '' };
-      const manifest = doc.manifest ? doc.manifest() : [];
-
-      const header = makeElement('header', { className: 'dr-article-header' }, [
-        meta.kicker ? makeElement('div', { className: 'dr-kicker' }, meta.kicker) : null,
-        makeElement('h1', { className: 'dr-title' }, meta.title),
-        meta.subtitle ? makeElement('p', { className: 'dr-subtitle' }, meta.subtitle) : null
-      ]);
-      this.articleContainer.appendChild(header);
-
-      manifest.forEach((sec) => {
-        const secWrap = makeElement('section', {
-          className: 'dr-section-divider',
-          id: sec.section ? `sec-${sec.section}` : null,
-          'data-section': sec.section || null
-        });
-        if (sec.partLabel) {
-          secWrap.appendChild(makeElement('div', { className: 'dr-section-part' }, sec.partLabel));
-        }
-        if (sec.title) {
-          secWrap.appendChild(makeElement('h2', { className: 'dr-section-title' }, sec.title));
-        }
-
-        (sec.blocks || []).forEach((b) => {
-          secWrap.appendChild(this._renderBlock(b, doc));
-        });
-
-        this.articleContainer.appendChild(secWrap);
+    if (typeof CadStudioDemoComponent !== 'undefined' && CadStudioDemoComponent._instances) {
+      this.articleContainer.querySelectorAll('[id^="accucad-mount-"], [id^="comp-mount-"]').forEach(el => {
+        if (el._accuCadId) CadStudioDemoComponent.unregisterInstance(el._accuCadId);
       });
-
-      this._updateBlockNoteBadges();
-      this._setupScrollSpy();
     }
+
+    this.articleContainer.innerHTML = '';
+    const doc = this.getCurrentDoc();
+    if (!doc) {
+      this.articleContainer.innerHTML = '<div style="padding:2rem;text-align:center;">No document content found.</div>';
+      return;
+    }
+
+    const meta = doc.getMeta ? doc.getMeta() : { kicker: 'Dossier', title: 'Document', subtitle: '' };
+    const manifest = doc.manifest ? doc.manifest() : [];
+
+    const header = makeElement('header', { className: 'dr-article-header' }, [
+      meta.kicker ? makeElement('div', { className: 'dr-kicker' }, meta.kicker) : null,
+      makeElement('h1', { className: 'dr-title' }, meta.title),
+      meta.subtitle ? makeElement('p', { className: 'dr-subtitle' }, meta.subtitle) : null
+    ]);
+    this.articleContainer.appendChild(header);
+
+    const summaryCard = this._renderChapterSummaryCard();
+    if (summaryCard) this.articleContainer.appendChild(summaryCard);
+
+    manifest.forEach((sec) => {
+      const secWrap = makeElement('section', {
+        className: 'dr-section-divider',
+        id: sec.section ? `sec-${sec.section}` : null,
+        'data-section': sec.section || null
+      });
+      if (sec.partLabel) secWrap.appendChild(makeElement('div', { className: 'dr-section-part' }, sec.partLabel));
+      if (sec.title) secWrap.appendChild(makeElement('h2', { className: 'dr-section-title' }, sec.title));
+      (sec.blocks || []).forEach((b) => secWrap.appendChild(this._renderBlock(b, doc)));
+      this.articleContainer.appendChild(secWrap);
+    });
+
+    if (typeof SensitiveContextGate !== 'undefined') {
+      SensitiveContextGate.syncToolbarButton(this);
+    }
+    this._updateBlockNoteBadges();
+    this._setupScrollSpy();
+  }
 
   _renderBlock(blockDef, doc) {
     const blockId = blockDef.id;
-    const dossierId = this.options.dossierId || this.brandTitle;
+    if (blockDef.sensitive && typeof SensitiveContextGate !== 'undefined' && !SensitiveContextGate.isUnlocked()) {
+      return SensitiveContextGate.renderLockedBlock(blockDef, () => this.renderCurrentDocument());
+    }
 
-    // 1. Resolve localized in-situ edits
+    const dossierId = this.options.dossierId || this.brandTitle;
     let overrideText = null;
     const DocEditor = this.documentEditor;
     if (DocEditor) {
       const ov = DocEditor.getOverride(this.currentPageId, blockId, dossierId);
       if (ov) overrideText = ov.text;
     }
+    const ItemNotes = this.itemNotes;
 
-    // 2. Interactive Component Mounts
     if (blockDef.type === 'component') {
       const mountId = `comp-mount-${blockId}-${Math.random().toString(36).substr(2, 6)}`;
       const wrapper = makeElement('div', {
-        className: 'dr-component-mount-wrap',
-        id: mountId,
-        'data-block-id': blockId,
-        'data-block': blockId,
-        'data-component': blockDef.component,
-        style: { margin: '28px 0', width: '100%', position: 'relative' }
+        className: `dr-block-wrapper dr-component-mount-wrap ${this.selectedBlockId === blockId ? 'block-selected' : ''}`,
+        id: `block-${blockId}`, 'data-block-id': blockId, 'data-block': blockId, 'data-component': blockDef.component,
+        style: { margin: '28px 0', width: '100%', position: 'relative' },
+        onclick: () => this.selectBlock(blockId, false)
       });
+      wrapper.appendChild(makeElement('div', { id: mountId, style: { width: '100%', position: 'relative' } }));
+      wrapper.appendChild(this._buildBlockHoverPill(blockId, wrapper, doc, false, null));
 
       const compClass = globalThis[blockDef.component];
       if (compClass) {
         setTimeout(() => {
           const el = document.getElementById(mountId);
           if (el) {
-            if (typeof compClass.render === 'function') {
-              compClass.render(el, blockDef.options || {});
-            } else if (typeof compClass.renderInteractiveWidget === 'function') {
-              compClass.renderInteractiveWidget(el);
-            }
+            if (typeof compClass.render === 'function') compClass.render(el, blockDef.options || {});
+            else if (typeof compClass.renderInteractiveWidget === 'function') compClass.renderInteractiveWidget(el);
           }
         }, 0);
       }
       return wrapper;
     }
 
-    // 3. Resolve block content
     let rawItems = [];
     if (overrideText) {
       rawItems = Array.isArray(overrideText) ? overrideText : [overrideText];
     } else {
       const htmlContent = this.resolveHtmlBlockContent(this.currentPageId, blockId);
-      if (htmlContent) {
-        rawItems = [htmlContent];
-      } else if (typeof doc[blockId] === 'function') {
+      if (htmlContent) rawItems = [htmlContent];
+      else if (typeof doc[blockId] === 'function') {
         const val = doc[blockId]();
         rawItems = Array.isArray(val) ? val : [val];
-      } else {
-        rawItems = ['[Content missing]'];
-      }
+      } else rawItems = ['[Content missing]'];
     }
 
     const wrapper = makeElement('div', {
       className: `dr-block-wrapper ${this.selectedBlockId === blockId ? 'block-selected' : ''}`,
-      id: `block-${blockId}`,
-      'data-block-id': blockId,
-      'data-block': blockId,
+      id: `block-${blockId}`, 'data-block-id': blockId, 'data-block': blockId,
       onclick: () => this.selectBlock(blockId, false),
       ondblclick: (e) => {
         e.stopPropagation();
-        if (DocEditor) {
-          DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
-            this.renderCurrentDocument();
-          }, this);
-        }
+        if (DocEditor) DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => this.renderCurrentDocument(), this);
       }
     });
 
-    // Active Revision Badge Pill
     if (overrideText) {
-      const revBadge = makeElement('div', {
-        style: {
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)',
-          borderRadius: '12px', padding: '2px 8px', marginBottom: '8px', cursor: 'pointer'
-        },
-        onclick: (e) => {
-          e.stopPropagation();
-          if (DocEditor) {
-            DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
-              this.renderCurrentDocument();
-            }, this);
-          }
-        }
+      wrapper.appendChild(makeElement('div', {
+        style: { display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '12px', padding: '2px 8px', marginBottom: '8px', cursor: 'pointer' },
+        onclick: (e) => { e.stopPropagation(); if (DocEditor) DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => this.renderCurrentDocument(), this); }
       }, [
         makeElement('span', { style: { fontSize: '10px', color: '#f59e0b', fontWeight: 'bold', fontFamily: 'var(--dr-font-mono)' } }, '⚡ Active In-Situ Revision'),
-        makeElement('span', { style: { fontSize: '9.5px', color: '#cbd5e1' } }, '• Double-click to edit or copy patch')
-      ]);
-      wrapper.appendChild(revBadge);
+        makeElement('span', { style: { fontSize: '9.5px', color: '#cbd5e1' } }, '• Double-click to edit')
+      ]));
     }
 
-    // Media & Layout Types
-    if (blockDef.type === 'image') {
-      wrapper.appendChild(this._renderImageBlock(blockDef, rawItems));
-    } else if (blockDef.type === 'image-group') {
-      wrapper.appendChild(this._renderImageGroupBlock(blockDef));
-    } else if (blockDef.type === 'youtube' || blockDef.type === 'video') {
-      wrapper.appendChild(this._renderYouTubeBlock(blockDef));
-    } else if (blockDef.type === 'link-card' || blockDef.type === 'bookmark') {
-      wrapper.appendChild(this._renderLinkCardBlock(blockDef));
-    } else if (blockDef.type === 'sidebar') {
+    if (blockDef.type === 'image') wrapper.appendChild(this._renderImageBlock(blockDef, rawItems));
+    else if (blockDef.type === 'image-group') wrapper.appendChild(this._renderImageGroupBlock(blockDef));
+    else if (blockDef.type === 'youtube' || blockDef.type === 'video') wrapper.appendChild(this._renderYouTubeBlock(blockDef));
+    else if (blockDef.type === 'link-card' || blockDef.type === 'bookmark') wrapper.appendChild(this._renderLinkCardBlock(blockDef));
+    else if (blockDef.type === 'sidebar') {
       const aside = makeElement('aside', { className: 'dr-block-sidebar' });
-      if (blockDef.kicker) {
-        aside.appendChild(makeElement('div', { className: 'dr-sidebar-kicker' }, blockDef.kicker));
-      }
-      if (blockDef.title) {
-        aside.appendChild(makeElement('div', { className: 'dr-sidebar-title' }, blockDef.title));
-      }
+      if (blockDef.kicker) aside.appendChild(makeElement('div', { className: 'dr-sidebar-kicker' }, blockDef.kicker));
+      if (blockDef.title) aside.appendChild(makeElement('div', { className: 'dr-sidebar-title' }, blockDef.title));
       const body = makeElement('div', { className: 'dr-sidebar-body' });
-      rawItems.forEach(item => {
-        body.appendChild(this._renderFormattedBlockText(item));
-      });
+      rawItems.forEach(item => body.appendChild(this._renderFormattedBlockText(item)));
       aside.appendChild(body);
       wrapper.appendChild(aside);
     } else if (blockDef.type === 'quote') {
       const bq = makeElement('blockquote', { className: 'dr-block-quote' });
-      rawItems.forEach(item => {
-        bq.appendChild(this._renderFormattedBlockText(item));
-      });
+      rawItems.forEach(item => bq.appendChild(this._renderFormattedBlockText(item)));
       wrapper.appendChild(bq);
     } else {
       rawItems.forEach(item => {
@@ -714,76 +728,7 @@ class DocumentReader {
       });
     }
 
-    // Gutter Action Hover Pill (Notes, Discussions, In-Situ Edits, Links)
-    const hoverPill = makeElement('div', { className: 'dr-hover-action-pill' });
-    if (overrideText) {
-      hoverPill.appendChild(makeElement('span', {
-        style: { fontSize: '9px', color: '#f59e0b', fontWeight: 'bold', marginRight: '4px' }
-      }, 'Edited'));
-    }
-
-    const ItemNotes = this.itemNotes;
-
-    // 1. Author Directives / Spec Note Button
-    const noteBtn = makeElement('button', {
-      className: 'dr-pill-btn dr-gutter-note-btn',
-      id: `btn-note-${blockId}`,
-      title: 'Attach Author Note / Living Directive [Hotkey: C / M in Aardvark]',
-      onclick: (e) => {
-        e.stopPropagation();
-        if (ItemNotes) {
-          ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => {
-            this._updateBlockNoteBadges();
-            this._populateSidePanelNotes();
-          }, this, { defaultTab: 'note' });
-        }
-      }
-    }, '📝 Note');
-    hoverPill.appendChild(noteBtn);
-
-    // 2. Direct Public In-Situ Discussion Button
-    const discussBtn = makeElement('button', {
-      className: 'dr-pill-btn',
-      title: 'Open In-Situ Discussion Thread for this block',
-      onclick: (e) => {
-        e.stopPropagation();
-        if (ItemNotes) {
-          ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => {
-            this._updateBlockNoteBadges();
-            this._populateSidePanelNotes();
-          }, this, { defaultTab: 'thread' });
-        } else {
-          this.openElementDiscussion(this.currentPageId, blockId, wrapper);
-        }
-      }
-    }, '💬 Discuss');
-    hoverPill.appendChild(discussBtn);
-
-    // 3. In-Situ Text Editor
-    hoverPill.appendChild(makeElement('button', {
-      className: 'dr-pill-btn',
-      title: 'Edit In-Situ [Hotkey: E or Double-Click]',
-      onclick: (e) => {
-        e.stopPropagation();
-        if (DocEditor) {
-          DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => {
-            this.renderCurrentDocument();
-          }, this);
-        }
-      }
-    }, '✎ Edit'));
-
-    // 4. Copy Direct Anchor Link
-    hoverPill.appendChild(makeElement('button', {
-      className: 'dr-pill-btn',
-      title: 'Copy direct anchor link',
-      onclick: (e) => {
-        e.stopPropagation();
-        this.copyAnchorLink(this.currentPageId, blockId, e.currentTarget);
-      }
-    }, '🔗'));
-
-    wrapper.appendChild(hoverPill);
+    wrapper.appendChild(this._buildBlockHoverPill(blockId, wrapper, doc, true, overrideText));
     return wrapper;
   }
   _formatText(text) {
@@ -923,11 +868,18 @@ static ${blockId}() {
 
       this.currentPageId = pageId;
 
-      if (updateUrl && window.history && window.history.pushState) {
-        window.history.pushState(null, '', `#${pageId}`);
+      if (updateUrl) {
+        try {
+          if (window.location.protocol !== 'about:' && window.history && window.history.pushState) {
+            window.history.pushState(null, '', `#${pageId}`);
+          } else {
+            window.location.hash = `#${pageId}`;
+          }
+        } catch (e) {
+          try { window.location.hash = `#${pageId}`; } catch (err) {}
+        }
       }
 
-      // Update Top Breadcrumb
       const pageObj = this.pages.find(p => p.id === pageId);
       if (this.activeChapterBreadcrumb && pageObj) {
         const parts = pageObj.title.split('.');
@@ -942,44 +894,42 @@ static ${blockId}() {
       if (typeof KeyCommandHandler !== 'undefined') {
         KeyCommandHandler.setPaused(false);
       }
-  }
+    }
   toggleTheme(targetTheme = null) {
-    const themes = ['dark', 'blueprint', 'phosphor'];
-    let cur = localStorage.getItem('dr_theme') || 'dark';
-    let next = targetTheme || themes[(themes.indexOf(cur) + 1) % themes.length];
+      const themes = ['dark', 'blueprint', 'phosphor'];
+      const cur = localStorage.getItem('dr_theme') || 'dark';
+      const next = targetTheme || themes[(themes.indexOf(cur) + 1) % themes.length];
 
-    localStorage.setItem('dr_theme', next);
+      localStorage.setItem('dr_theme', next);
 
-    document.body.classList.remove('theme-dark', 'theme-blueprint', 'theme-phosphor');
-    if (next === 'dark') {
-      document.body.classList.add('theme-dark');
-    } else if (next === 'blueprint') {
-      document.body.classList.add('theme-blueprint');
-    } else if (next === 'phosphor') {
-      document.body.classList.add('theme-phosphor');
+      document.body.classList.remove('theme-dark', 'theme-blueprint', 'theme-phosphor');
+      if (next === 'blueprint') {
+        document.body.classList.add('theme-blueprint');
+      } else if (next === 'phosphor') {
+        document.body.classList.add('theme-phosphor');
+      } else {
+        document.body.classList.add('theme-dark');
+      }
+
+      const btn = document.querySelector('.dr-nav-btn[title*="Theme"]');
+      if (btn) {
+        if (next === 'blueprint') btn.textContent = '📐 Blueprint';
+        else if (next === 'phosphor') btn.textContent = '📟 Phosphor';
+        else btn.textContent = '🌒 Cyber';
+      }
+
+      if (typeof CadStudioDemoComponent !== 'undefined' && CadStudioDemoComponent._instances && typeof globalThis.THREE !== 'undefined') {
+        const bgHex = next === 'blueprint' ? 0x0f1c2e : (next === 'phosphor' ? 0x020a04 : 0x070a13);
+        CadStudioDemoComponent._instances.forEach(inst => {
+          if (inst.app?.threeDView?.scene) {
+            inst.app.threeDView.scene.background = new globalThis.THREE.Color(bgHex);
+          }
+          if (inst.app?.baseController?.accuDraw?.updateContrast) {
+            inst.app.baseController.accuDraw.updateContrast();
+          }
+        });
+      }
     }
-
-    // Update theme button icon
-    const btn = document.querySelector('.dr-nav-btn[title*="Theme"]');
-    if (btn) {
-      if (next === 'dark') btn.textContent = '🌒 Cyber';
-      else if (next === 'blueprint') btn.textContent = '📐 Blueprint';
-      else btn.textContent = '📟 Phosphor';
-    }
-
-    // Synchronize clear color across active Three.js viewports
-    if (typeof CadStudioDemoComponent !== 'undefined' && CadStudioDemoComponent._instances) {
-      const bgHex = next === 'blueprint' ? 0x0f1c2e : (next === 'phosphor' ? 0x020a04 : 0x070a13);
-      CadStudioDemoComponent._instances.forEach(inst => {
-        if (inst.app?.threeDView?.scene) {
-          inst.app.threeDView.scene.background = new THREE.Color(bgHex);
-        }
-        if (inst.app?.baseController?.accuDraw?.updateContrast) {
-          inst.app.baseController.accuDraw.updateContrast();
-        }
-      });
-    }
-  }
   copyAnchorLink(pageId, blockId, btn = null) {
     const url = `${window.location.origin}${window.location.pathname}#${pageId}/${blockId}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -1057,7 +1007,8 @@ static ${blockId}() {
   }
 
   showExportDialog() {
-      let exportScope = 'full'; // 'full' or 'current'
+      let exportScope = 'full';
+      const dossierName = (this.options.dossierId || this.brandTitle || 'Document').replace(/[^a-zA-Z0-9_-]/g, '_');
 
       const getMarkdownContent = () => {
         if (exportScope === 'current') {
@@ -1071,37 +1022,22 @@ static ${blockId}() {
 
       const dialogWrap = makeElement('div', {
         style: {
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-          padding: '6px 2px',
-          color: '#f8fafc',
-          fontFamily: 'var(--dr-font-sans, system-ui, sans-serif)',
-          boxSizing: 'border-box'
+          display: 'flex', flexDirection: 'column', gap: '14px', padding: '6px 2px',
+          color: '#f8fafc', fontFamily: 'var(--dr-font-sans, system-ui, sans-serif)', boxSizing: 'border-box'
         }
       });
 
-      // Top description & Scope selector
       const topBar = makeElement('div', {
         style: {
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '10px',
-          borderBottom: '1px solid #1e293b',
-          paddingBottom: '10px'
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid #1e293b', paddingBottom: '10px'
         }
       });
 
       const scopeToggleBox = makeElement('div', {
         style: {
-          display: 'flex',
-          background: '#0d131f',
-          border: '1px solid #1e293b',
-          borderRadius: '20px',
-          padding: '3px',
-          gap: '4px'
+          display: 'flex', background: '#0d131f', border: '1px solid #1e293b',
+          borderRadius: '20px', padding: '3px', gap: '4px'
         }
       });
 
@@ -1116,7 +1052,7 @@ static ${blockId}() {
           textarea.value = currentText;
           updateCounts();
         }
-      }, '📚 Full Treatise (All 10 Parts)');
+      }, `📚 Full Document (${this.pages.length} Parts)`);
 
       const curPageObj = this.pages.find(p => p.id === this.currentPageId) || this.pages[0];
       const btnScopeCur = makeElement('button', {
@@ -1137,37 +1073,22 @@ static ${blockId}() {
       const statsBadge = makeElement('div', {
         id: 'export-stats-badge',
         style: {
-          fontSize: '11px',
-          fontFamily: 'var(--dr-font-mono, monospace)',
-          color: '#00f2fe',
-          background: 'rgba(0, 242, 254, 0.08)',
-          border: '1px solid rgba(0, 242, 254, 0.25)',
-          borderRadius: '12px',
-          padding: '3px 10px'
+          fontSize: '11px', fontFamily: 'var(--dr-font-mono, monospace)',
+          color: '#00f2fe', background: 'rgba(0, 242, 254, 0.08)',
+          border: '1px solid rgba(0, 242, 254, 0.25)', borderRadius: '12px', padding: '3px 10px'
         }
       });
 
       topBar.append(scopeToggleBox, statsBadge);
       dialogWrap.appendChild(topBar);
 
-      // Textarea with high contrast monospace view
       const textarea = makeElement('textarea', {
         spellcheck: 'false',
         style: {
-          width: '100%',
-          height: '380px',
-          background: '#070a13',
-          color: '#e2e8f0',
-          border: '1.5px solid #1e293b',
-          borderRadius: '8px',
-          padding: '12px 14px',
-          fontFamily: 'var(--dr-font-mono, monospace)',
-          fontSize: '11.5px',
-          lineHeight: '1.6',
-          resize: 'vertical',
-          outline: 'none',
-          boxSizing: 'border-box',
-          whiteSpace: 'pre'
+          width: '100%', height: '380px', background: '#070a13', color: '#e2e8f0',
+          border: '1.5px solid #1e293b', borderRadius: '8px', padding: '12px 14px',
+          fontFamily: 'var(--dr-font-mono, monospace)', fontSize: '11.5px', lineHeight: '1.6',
+          resize: 'vertical', outline: 'none', boxSizing: 'border-box', whiteSpace: 'pre'
         }
       });
       textarea.value = currentText;
@@ -1179,45 +1100,28 @@ static ${blockId}() {
         statsBadge.textContent = `${words.toLocaleString()} words • ${chars.toLocaleString()} chars`;
       };
       updateCounts();
-
       textarea.addEventListener('input', updateCounts);
 
-      // Footer actions
       const footerBar = makeElement('div', {
         style: {
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingTop: '6px',
-          borderTop: '1px solid #1e293b'
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          paddingTop: '6px', borderTop: '1px solid #1e293b'
         }
       });
 
       const copyBtn = makeElement('button', {
         className: 'dr-nav-btn primary',
-        style: {
-          padding: '7px 18px',
-          fontSize: '12px',
-          fontWeight: '800',
-          borderRadius: '20px'
-        },
+        style: { padding: '7px 18px', fontSize: '12px', fontWeight: '800', borderRadius: '20px' },
         onclick: () => {
           textarea.select();
           const copySuccess = () => {
             const orig = copyBtn.textContent;
             copyBtn.textContent = '✓ Copied Markdown to Clipboard!';
             copyBtn.style.background = '#10b981';
-            setTimeout(() => {
-              copyBtn.textContent = orig;
-              copyBtn.style.background = '';
-            }, 2000);
+            setTimeout(() => { copyBtn.textContent = orig; copyBtn.style.background = ''; }, 2000);
           };
-
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(textarea.value).then(copySuccess).catch(() => {
-              document.execCommand('copy');
-              copySuccess();
-            });
+            navigator.clipboard.writeText(textarea.value).then(copySuccess).catch(() => { document.execCommand('copy'); copySuccess(); });
           } else {
             document.execCommand('copy');
             copySuccess();
@@ -1228,20 +1132,13 @@ static ${blockId}() {
       const downloadBtn = makeElement('button', {
         className: 'dr-nav-btn',
         style: {
-          padding: '7px 16px',
-          fontSize: '12px',
-          fontWeight: '700',
-          color: '#00f2fe',
-          borderColor: 'rgba(0, 242, 254, 0.45)',
-          borderRadius: '20px'
+          padding: '7px 16px', fontSize: '12px', fontWeight: '700',
+          color: '#00f2fe', borderColor: 'rgba(0, 242, 254, 0.45)', borderRadius: '20px'
         },
         onclick: () => {
           const text = textarea.value;
           const cur = this.pages.find(p => p.id === this.currentPageId) || this.pages[0];
-          const filename = exportScope === 'full'
-            ? 'TheRobotDividend_RobBrown_FullTreatise.md'
-            : `TheRobotDividend_${cur.id}.md`;
-
+          const filename = exportScope === 'full' ? `${dossierName}_FullDocument.md` : `${dossierName}_${cur.id}.md`;
           const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -1254,20 +1151,15 @@ static ${blockId}() {
         }
       }, '💾 Download .md File');
 
-      const actionsRight = makeElement('div', { style: { display: 'flex', gap: '8px' } }, [
-        downloadBtn,
-        copyBtn
-      ]);
-
       footerBar.append(
         makeElement('span', { style: { fontSize: '11px', color: '#64748b' } }, 'Ready to paste into Claude, GPT-4, or any markdown editor.'),
-        actionsRight
+        makeElement('div', { style: { display: 'flex', gap: '8px' } }, [downloadBtn, copyBtn])
       );
       dialogWrap.appendChild(footerBar);
 
       if (typeof UITools !== 'undefined' && typeof UITools.makeDialog === 'function') {
         UITools.makeDialog({
-          title: '📤 Export Treatise as Markdown',
+          title: `📤 Export ${this.brandTitle} as Markdown`,
           size: [760, 560],
           position: [Math.max(16, Math.floor((window.innerWidth - 760) / 2)), 45],
           contentElement: dialogWrap,
@@ -1278,25 +1170,43 @@ static ${blockId}() {
       }
     }
   destroy() {
-    if (this._scrollHandler) window.removeEventListener('scroll', this._scrollHandler);
-    if (this._routeHandler) {
-      window.removeEventListener('hashchange', this._routeHandler);
-      window.removeEventListener('popstate', this._routeHandler);
+      if (this._unsubNotes) { try { this._unsubNotes(); } catch (e) {} this._unsubNotes = null; }
+      if (this._scrollHandler) window.removeEventListener('scroll', this._scrollHandler);
+      if (this._safeAreaSync) window.removeEventListener('layout-safe-area-change', this._safeAreaSync);
+      if (this._keyboardTourHandler) window.removeEventListener('keydown', this._keyboardTourHandler);
+      if (this._routeHandler) {
+        window.removeEventListener('hashchange', this._routeHandler);
+        window.removeEventListener('popstate', this._routeHandler);
+      }
+      const dock = document.getElementById('dr-notes-nav-dock');
+      if (dock) dock.remove();
+      if (this._ownAardvark) { try { this._ownAardvark.destroy(); } catch (e) {} this._ownAardvark = null; }
+      if (this.navBar) this.navBar.remove();
+      if (this.progressTrack) this.progressTrack.remove();
+      if (this.navSidePanel && typeof this.navSidePanel.destroy === 'function') {
+        this.navSidePanel.destroy();
+      }
+      if (this.assistantDialog && typeof this.assistantDialog.close === 'function') {
+        this.assistantDialog.close();
+      }
+      if (globalThis._activeDocumentReader === this) globalThis._activeDocumentReader = null;
     }
-    if (this.navBar) this.navBar.remove();
-    if (this.progressTrack) this.progressTrack.remove();
-    if (this.navSidePanel && typeof this.navSidePanel.destroy === 'function') {
-      this.navSidePanel.destroy();
-    }
-    if (this.assistantDialog && typeof this.assistantDialog.close === 'function') {
-      this.assistantDialog.close();
-    }
-  }
-
   _initNavigationSidePanel() {
-      // When CadPlan provides the master left sidebar, do not instantiate a competing right sidepanel
-      return null;
-  }
+      if (this.navSidePanel || typeof SidePanel === 'undefined') return this.navSidePanel;
+      this.navSidePanel = new SidePanel('left', 300, null);
+      this.navSidePanel.header.innerHTML = '';
+      this.navSidePanel.header.append(
+        makeElement('span', { style: { fontFamily: 'monospace', fontSize: '11px', fontWeight: '800', color: '#00f2fe', flex: 1 } }, `${this.brandIcon} ${this.brandTitle}`),
+        makeElement('button', {
+          className: 'dr-nav-btn',
+          style: { padding: '2px 8px', fontSize: '10px' },
+          onclick: () => this.navSidePanel.close()
+        }, '✕')
+      );
+      this.spTocSection = this.navSidePanel.addSection('toc', 'Chapters & Outline', true);
+      this.spNotesSection = this.navSidePanel.addSection('notes', 'Living Directives', true);
+      return this.navSidePanel;
+    }
   toggleNavigationSidePanel() {
     if (!this.navSidePanel) {
       this._initNavigationSidePanel();
@@ -1464,19 +1374,25 @@ static ${blockId}() {
 
         const dossierId = this.options.dossierId || this.brandTitle;
         const all = await ItemNotes.getAllNotes(dossierId);
+        const activeAll = all.filter(n => n.status !== 'resolved');
         const map = {};
         const notesByBlock = {};
 
-        all.forEach(n => {
-          if (n.status !== 'resolved') {
-            const key = `${n.pageId}:${n.blockId}`;
-            map[key] = (map[key] || 0) + 1;
-            notesByBlock[key] = notesByBlock[key] || [];
-            notesByBlock[key].push(n);
-          }
+        activeAll.forEach(n => {
+          const key = `${n.pageId}:${n.blockId}`;
+          map[key] = (map[key] || 0) + 1;
+          notesByBlock[key] = notesByBlock[key] || [];
+          notesByBlock[key].push(n);
         });
 
+        if (this.directivesNavBtn) {
+          this.directivesNavBtn.textContent = activeAll.length > 0
+            ? `⚡ Directives (${activeAll.length})`
+            : '⚡ Directives';
+        }
+
         const doc = this.getCurrentDoc();
+        const matchedNoteIds = new Set();
 
         document.querySelectorAll('.dr-block-wrapper').forEach(wrapper => {
           const blockId = wrapper.getAttribute('data-block-id');
@@ -1485,6 +1401,7 @@ static ${blockId}() {
           const key = `${this.currentPageId}:${blockId}`;
           const count = map[key] || 0;
           const notesList = notesByBlock[key] || [];
+          notesList.forEach(n => matchedNoteIds.add(n.id));
           const testNote = notesList.find(n => n.status === 'test_ready');
 
           const gutterBtn = wrapper.querySelector('.dr-gutter-note-btn');
@@ -1499,28 +1416,21 @@ static ${blockId}() {
             }
 
             if (testNote) {
-              // RENDER INTERACTIVE TEST DIRECTIVE BANNER
               if (existingBanner) existingBanner.remove();
 
               const testBanner = makeElement('div', {
                 className: 'dr-attached-notes-banner test-ready',
                 style: {
-                  background: 'rgba(192, 132, 252, 0.12)',
-                  border: '1.5px solid #c084fc',
-                  boxShadow: '0 0 16px rgba(192, 132, 252, 0.3)',
-                  borderRadius: '8px',
-                  padding: '8px 14px',
-                  marginTop: '10px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '12px'
+                  background: 'rgba(192, 132, 252, 0.12)', border: '1.5px solid #c084fc',
+                  boxShadow: '0 0 16px rgba(192, 132, 252, 0.3)', borderRadius: '8px',
+                  padding: '8px 14px', marginTop: '10px', display: 'flex',
+                  justifyContent: 'space-between', alignItems: 'center', gap: '12px'
                 }
               }, [
                 makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1 } }, [
                   makeElement('span', { style: { fontSize: '15px', flexShrink: 0 } }, '🧪'),
                   makeElement('strong', { style: { color: '#d2a8ff', fontSize: '11px', fontFamily: 'monospace', flexShrink: 0 } }, 'TEST DIRECTIVE:'),
-                  makeElement('span', { style: { color: '#f8fafc', fontSize: '11.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, 
+                  makeElement('span', { style: { color: '#f8fafc', fontSize: '11.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                     testNote.testInstructions || testNote.text
                   )
                 ]),
@@ -1539,8 +1449,8 @@ static ${blockId}() {
                       status: 'resolved',
                       verifiedTimestamp: Date.now()
                     });
-                    if (typeof OutboxQueue !== 'undefined' && OutboxQueue.addItem) {
-                      OutboxQueue.addItem(`Verified: ${blockId}`, `✓ Confirmed working on [${blockId}]: ${testNote.testInstructions || testNote.text}`);
+                    if (typeof OutboxQueue !== 'undefined' && OutboxQueue.addBundle) {
+                      OutboxQueue.addBundle(`Verified: ${blockId}`, `✓ Confirmed working on [${blockId}]: ${testNote.testInstructions || testNote.text}`);
                     }
                     this._updateBlockNoteBadges();
                     this._populateSidePanelNotes();
@@ -1550,7 +1460,6 @@ static ${blockId}() {
 
               wrapper.appendChild(testBanner);
             } else {
-              // STANDARD DIRECTIVE BANNER
               const latestNote = notesList[notesList.length - 1];
               const previewText = latestNote.text.length > 70 ? latestNote.text.substring(0, 70) + '...' : latestNote.text;
 
@@ -1562,20 +1471,24 @@ static ${blockId}() {
                 }, this);
               };
 
-              if (!existingBanner) {
-                const banner = makeElement('div', {
-                  className: 'dr-attached-notes-banner',
-                  onclick: onBannerClick
-                }, [
-                  makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' } }, [
-                    makeElement('span', { style: { fontSize: '13px' } }, '📝'),
-                    makeElement('strong', { style: { color: '#00f2fe' } }, `${count} Directive${count === 1 ? '' : 's'}:`),
-                    makeElement('span', { style: { color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `"${previewText}"`)
-                  ]),
-                  makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold', fontSize: '11px' } }, 'Open Studio ➔')
-                ]);
-                wrapper.appendChild(banner);
-              }
+              if (existingBanner) existingBanner.remove();
+              const banner = makeElement('div', {
+                className: 'dr-attached-notes-banner',
+                style: {
+                  background: 'rgba(0, 242, 254, 0.08)', border: '1px solid rgba(0, 242, 254, 0.25)',
+                  borderRadius: '6px', padding: '6px 12px', marginTop: '8px', cursor: 'pointer',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px'
+                },
+                onclick: onBannerClick
+              }, [
+                makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' } }, [
+                  makeElement('span', { style: { fontSize: '13px' } }, '📝'),
+                  makeElement('strong', { style: { color: '#00f2fe' } }, `${count} Directive${count === 1 ? '' : 's'}:`),
+                  makeElement('span', { style: { color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `"${previewText}"`)
+                ]),
+                makeElement('span', { style: { color: '#00f2fe', fontWeight: 'bold', fontSize: '11px' } }, 'Open Studio ➔')
+              ]);
+              wrapper.appendChild(banner);
             }
           } else {
             wrapper.classList.remove('has-attached-notes');
@@ -1587,7 +1500,46 @@ static ${blockId}() {
             if (existingBanner) existingBanner.remove();
           }
         });
-    }
+
+        // Highlight & badge any arbitrary XPath-targeted notes on this page
+        document.querySelectorAll('.dr-xpath-note-pill').forEach(el => el.remove());
+        document.querySelectorAll('.dr-xpath-annotated-el').forEach(el => {
+          el.classList.remove('dr-xpath-annotated-el');
+          el.style.outline = '';
+        });
+
+        activeAll.filter(n => n.pageId === this.currentPageId && !matchedNoteIds.has(n.id) && n.xpath).forEach(n => {
+          try {
+            const res = document.evaluate(n.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            const targetEl = res.singleNodeValue;
+            if (targetEl instanceof Element) {
+              targetEl.classList.add('dr-xpath-annotated-el');
+              targetEl.style.outline = '2px dashed #00f2fe';
+              targetEl.style.outlineOffset = '3px';
+              const pill = makeElement('span', {
+                className: 'dr-xpath-note-pill',
+                'data-style-exclude': 'true',
+                style: {
+                  display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: '6px',
+                  background: '#082f49', color: '#00f2fe', border: '1px solid #00f2fe',
+                  borderRadius: '10px', padding: '1px 7px', fontSize: '10px', fontFamily: 'monospace',
+                  fontWeight: 'bold', cursor: 'pointer', verticalAlign: 'middle'
+                },
+                onclick: (e) => {
+                  e.stopPropagation();
+                  ItemNotes.openBlockNotesDialog(this.currentPageId, n.blockId, doc, () => {
+                    this._updateBlockNoteBadges();
+                    this._populateSidePanelNotes();
+                  }, this, { targetElement: targetEl, locator: { key: n.blockId, xpath: n.xpath }, dossierId });
+                }
+              }, '📝 Note');
+              targetEl.appendChild(pill);
+            }
+          } catch (e) {}
+        });
+
+        this._renderNotesNavigatorDock(activeAll);
+      }
   _renderNotesNavigatorDock(activeNotes) {
       let dock = document.getElementById('dr-notes-nav-dock');
 
@@ -1723,185 +1675,209 @@ static ${blockId}() {
 
       dock.append(prevBtn, labelSpan, nextBtn, dictateBtn, compileBtn);
     }
+
   static decorateContainer(container, options = {}) {
-    if (!container) return;
-    const dossierId = options.dossierId || 'Dossier';
-    const pageId = options.pageId || 'main';
+        if (!container) return;
+        const dossierId = options.dossierId || 'Dossier';
+        const pageId = options.pageId || 'main';
 
-    const ItemNotes = options.itemNotesClass || globalThis.DocumentItemNotes || globalThis.CadPlanItemNotes;
-    const DocEditor = options.editorClass || globalThis.DocumentEditor || globalThis.CadPlanDocumentEditor;
+        const ItemNotes = options.itemNotesClass || globalThis.DocumentItemNotes || globalThis.CadPlanItemNotes;
+        const DocEditor = options.editorClass || globalThis.DocumentEditor || globalThis.CadPlanDocumentEditor;
 
-    const blockEls = container.querySelectorAll('[data-block-id]');
-    if (blockEls.length === 0) return;
+        const blockEls = container.querySelectorAll('[data-block-id]');
 
-    const refreshDecorations = async () => {
-      let allNotes = [];
-      if (ItemNotes && typeof ItemNotes.getAllNotes === 'function') {
-        allNotes = await ItemNotes.getAllNotes(dossierId);
-      }
-
-      const noteCounts = {};
-      const notesByBlock = {};
-      allNotes.forEach(n => {
-        if (n.status !== 'resolved') {
-          noteCounts[n.blockKey] = (noteCounts[n.blockKey] || 0) + 1;
-          notesByBlock[n.blockKey] = notesByBlock[n.blockKey] || [];
-          notesByBlock[n.blockKey].push(n);
-        }
-      });
-
-      blockEls.forEach(blockEl => {
-        const blockId = blockEl.getAttribute('data-block-id');
-        if (!blockId) return;
-        const key = `${pageId}:${blockId}`;
-        const count = noteCounts[key] || 0;
-        const notesList = notesByBlock[key] || [];
-
-        // 1. Apply in-situ text override if active
-        if (DocEditor && typeof DocEditor.getOverride === 'function') {
-          const override = DocEditor.getOverride(pageId, blockId, dossierId);
-          if (override) {
-            const textEl = blockEl.querySelector('p, .text-sm, .card-text') || blockEl;
-            if (textEl && !textEl.hasAttribute('data-original-text')) {
-              textEl.setAttribute('data-original-text', textEl.textContent);
-              textEl.textContent = override.text;
-            }
+        const refreshDecorations = async () => {
+          let allNotes = [];
+          if (ItemNotes && typeof ItemNotes.getAllNotes === 'function') {
+            allNotes = await ItemNotes.getAllNotes(dossierId);
           }
-        }
 
-        // 2. Ensure Action Gutter Exists
-        let gutter = blockEl.querySelector('.dr-universal-gutter');
-        if (!gutter) {
-          gutter = makeElement('div', {
-            className: 'dr-universal-gutter',
-            style: {
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginTop: '8px',
-              paddingTop: '6px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              fontSize: '11px',
-              fontFamily: 'monospace'
+          const noteCounts = {};
+          const notesByBlock = {};
+          const activeNotes = allNotes.filter(n => n.status !== 'resolved');
+
+          activeNotes.forEach(n => {
+            noteCounts[n.blockKey] = (noteCounts[n.blockKey] || 0) + 1;
+            notesByBlock[n.blockKey] = notesByBlock[n.blockKey] || [];
+            notesByBlock[n.blockKey].push(n);
+          });
+
+          const matchedNoteIds = new Set();
+
+          blockEls.forEach(blockEl => {
+            const blockId = blockEl.getAttribute('data-block-id');
+            if (!blockId) return;
+            const key = `${pageId}:${blockId}`;
+            const count = noteCounts[key] || 0;
+            const notesList = notesByBlock[key] || [];
+            notesList.forEach(n => matchedNoteIds.add(n.id));
+
+            if (DocEditor && typeof DocEditor.getOverride === 'function') {
+              const override = DocEditor.getOverride(pageId, blockId, dossierId);
+              if (override) {
+                const textEl = blockEl.querySelector('[data-editable-text], p, .text-sm, .card-text');
+                if (textEl) {
+                  if (!textEl.hasAttribute('data-original-text')) {
+                    textEl.setAttribute('data-original-text', textEl.textContent);
+                  }
+                  textEl.textContent = override.text;
+                }
+              }
+            }
+
+            let gutter = Array.from(blockEl.children).find(c => c.classList?.contains('dr-universal-gutter'));
+            if (!gutter) {
+              gutter = makeElement('div', {
+                className: 'dr-universal-gutter',
+                'data-style-exclude': 'true',
+                style: {
+                  display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px',
+                  paddingTop: '6px', borderTop: '1px solid rgba(148, 163, 184, 0.22)',
+                  fontSize: '11px', fontFamily: 'monospace'
+                }
+              });
+
+              const noteBtn = makeElement('button', {
+                className: 'dr-nav-btn',
+                style: { padding: '2px 8px', fontSize: '10px', color: '#0284c7', borderColor: 'rgba(2, 132, 199, 0.45)', background: 'rgba(2, 132, 199, 0.08)' },
+                title: 'Attach or dictate directive for this block',
+                onclick: (e) => {
+                  e.stopPropagation();
+                  if (ItemNotes && typeof ItemNotes.openBlockNotesDialog === 'function') {
+                    const excerpt = blockEl.textContent.trim().substring(0, 180);
+                    const loc = ItemNotes.generateElementLocator ? ItemNotes.generateElementLocator(blockEl) : null;
+                    ItemNotes.openBlockNotesDialog(pageId, blockId, { [blockId]: () => excerpt, name: dossierId }, () => {
+                      refreshDecorations();
+                    }, { options: { dossierId } }, { targetElement: blockEl, locator: loc, dossierId });
+                  }
+                }
+              }, count > 0 ? `📝 ${count}` : '📝 Note');
+
+              const editBtn = makeElement('button', {
+                className: 'dr-nav-btn',
+                style: { padding: '2px 8px', fontSize: '10px', color: '#d97706', borderColor: 'rgba(217, 119, 6, 0.45)', background: 'rgba(245, 158, 11, 0.08)' },
+                title: 'Edit block text in-situ',
+                onclick: (e) => {
+                  e.stopPropagation();
+                  if (DocEditor && typeof DocEditor.openBlockEditor === 'function') {
+                    const targetTxt = blockEl.querySelector('[data-editable-text], p, .text-sm, .card-text');
+                    const excerpt = (targetTxt ? targetTxt.textContent : blockEl.textContent).trim();
+                    DocEditor.openBlockEditor(pageId, blockId, { [blockId]: () => excerpt, name: dossierId }, () => {
+                      refreshDecorations();
+                    }, { options: { dossierId } });
+                  }
+                }
+              }, '✎ Edit');
+
+              const linkBtn = makeElement('button', {
+                className: 'dr-nav-btn',
+                style: { padding: '2px 6px', fontSize: '10px', color: '#64748b', borderColor: 'rgba(100, 116, 139, 0.35)' },
+                title: 'Copy direct anchor link',
+                onclick: (e) => {
+                  e.stopPropagation();
+                  const url = `${window.location.origin}${window.location.pathname}#/${pageId}/${blockId}`;
+                  navigator.clipboard.writeText(url).then(() => {
+                    linkBtn.textContent = '✓';
+                    setTimeout(() => { linkBtn.textContent = '🔗'; }, 1800);
+                  });
+                }
+              }, '🔗');
+
+              gutter.append(noteBtn, editBtn, linkBtn);
+              blockEl.appendChild(gutter);
+            } else {
+              const noteBtn = gutter.querySelector('button');
+              if (noteBtn) {
+                noteBtn.textContent = count > 0 ? `📝 ${count}` : '📝 Note';
+              }
+            }
+
+            let banner = Array.from(blockEl.children).find(c => c.classList?.contains('dr-attached-notes-banner'));
+            if (count > 0) {
+              blockEl.style.borderLeft = '3.5px solid #00f2fe';
+              blockEl.style.paddingLeft = '14px';
+
+              const latest = notesList[notesList.length - 1];
+              const preview = latest.text.length > 60 ? latest.text.substring(0, 60) + '...' : latest.text;
+
+              if (!banner) {
+                banner = makeElement('div', {
+                  className: 'dr-attached-notes-banner',
+                  'data-style-exclude': 'true',
+                  style: {
+                    background: 'rgba(15, 23, 42, 0.88)', border: '1px solid rgba(0, 242, 254, 0.45)',
+                    borderRadius: '6px', padding: '6px 12px', marginTop: '8px', color: '#e2e8f0',
+                    fontSize: '11px', fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                  },
+                  onclick: (e) => {
+                    e.stopPropagation();
+                    if (ItemNotes && typeof ItemNotes.openBlockNotesDialog === 'function') {
+                      const excerpt = blockEl.textContent.trim().substring(0, 180);
+                      const loc = ItemNotes.generateElementLocator ? ItemNotes.generateElementLocator(blockEl) : null;
+                      ItemNotes.openBlockNotesDialog(pageId, blockId, { [blockId]: () => excerpt, name: dossierId }, () => {
+                        refreshDecorations();
+                      }, { options: { dossierId } }, { targetElement: blockEl, locator: loc, dossierId });
+                    }
+                  }
+                }, [
+                  makeElement('span', {}, `📝 ${count} Directive${count === 1 ? '' : 's'}: "${preview}"`),
+                  makeElement('span', { style: { fontWeight: 'bold', color: '#00f2fe' } }, 'View & Copy ➔')
+                ]);
+                blockEl.insertBefore(banner, gutter);
+              } else {
+                banner.firstChild.textContent = `📝 ${count} Directive${count === 1 ? '' : 's'}: "${preview}"`;
+              }
+            } else {
+              blockEl.style.borderLeft = '';
+              blockEl.style.paddingLeft = '';
+              if (banner) banner.remove();
             }
           });
 
-          // Add Note / Directive Button
-          const noteBtn = makeElement('button', {
-            className: 'dr-nav-btn',
-            style: { padding: '2px 8px', fontSize: '10px', color: '#00f2fe', borderColor: '#00f2fe66' },
-            title: 'Attach or dictate directive for this block',
-            onclick: (e) => {
-              e.stopPropagation();
-              if (ItemNotes && typeof ItemNotes.openBlockNotesDialog === 'function') {
-                const excerpt = blockEl.textContent.trim().substring(0, 120);
-                ItemNotes.openBlockNotesDialog(pageId, blockId, { [blockId]: () => excerpt, name: dossierId }, () => {
-                  refreshDecorations();
-                }, { options: { dossierId } });
+          // Also highlight & attach clickable note pills to arbitrary XPath-targeted elements (from Aardvark)
+          container.querySelectorAll('.dr-xpath-note-pill').forEach(el => el.remove());
+          container.querySelectorAll('.dr-xpath-annotated-el').forEach(el => {
+            el.classList.remove('dr-xpath-annotated-el');
+            el.style.outline = '';
+          });
+
+          activeNotes.filter(n => n.pageId === pageId && !matchedNoteIds.has(n.id) && n.xpath).forEach(n => {
+            try {
+              const res = document.evaluate(n.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+              const targetEl = res.singleNodeValue;
+              if (targetEl instanceof Element && !targetEl.closest('.dr-universal-gutter, .dr-attached-notes-banner')) {
+                targetEl.classList.add('dr-xpath-annotated-el');
+                targetEl.style.outline = '2px dashed #00f2fe';
+                targetEl.style.outlineOffset = '3px';
+                const pill = makeElement('span', {
+                  className: 'dr-xpath-note-pill',
+                  'data-style-exclude': 'true',
+                  style: {
+                    display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: '6px',
+                    background: '#082f49', color: '#00f2fe', border: '1px solid #00f2fe',
+                    borderRadius: '10px', padding: '1px 7px', fontSize: '10px', fontFamily: 'monospace',
+                    fontWeight: 'bold', cursor: 'pointer', verticalAlign: 'middle'
+                  },
+                  onclick: (e) => {
+                    e.stopPropagation();
+                    if (ItemNotes && typeof ItemNotes.openBlockNotesDialog === 'function') {
+                      ItemNotes.openBlockNotesDialog(pageId, n.blockId, { [n.blockId]: () => targetEl.textContent.trim().slice(0, 180), name: dossierId }, () => {
+                        refreshDecorations();
+                      }, { options: { dossierId } }, { targetElement: targetEl, locator: { key: n.blockId, xpath: n.xpath }, dossierId });
+                    }
+                  }
+                }, '📝 Note');
+                targetEl.appendChild(pill);
               }
-            }
-          }, count > 0 ? `📝 ${count}` : '📝 Note');
+            } catch (e) {}
+          });
 
-          // Edit In-Situ Button
-          const editBtn = makeElement('button', {
-            className: 'dr-nav-btn',
-            style: { padding: '2px 8px', fontSize: '10px', color: '#f59e0b', borderColor: '#f59e0b66' },
-            title: 'Edit block text in-situ',
-            onclick: (e) => {
-              e.stopPropagation();
-              if (DocEditor && typeof DocEditor.openBlockEditor === 'function') {
-                const excerpt = blockEl.textContent.trim();
-                DocEditor.openBlockEditor(pageId, blockId, { [blockId]: () => excerpt, name: dossierId }, () => {
-                  refreshDecorations();
-                });
-              }
-            }
-          }, '✎ Edit');
+          DocumentReader._renderNotesNavigatorDockStatic(activeNotes, dossierId, pageId);
+        };
 
-          // Copy Direct Link
-          const linkBtn = makeElement('button', {
-            className: 'dr-nav-btn',
-            style: { padding: '2px 6px', fontSize: '10px', color: '#94a3b8' },
-            title: 'Copy direct anchor link',
-            onclick: (e) => {
-              e.stopPropagation();
-              const url = `${window.location.origin}${window.location.pathname}#/${pageId}/${blockId}`;
-              navigator.clipboard.writeText(url).then(() => {
-                linkBtn.textContent = '✓';
-                setTimeout(() => { linkBtn.textContent = '🔗'; }, 1800);
-              });
-            }
-          }, '🔗');
-
-          gutter.appendChild(noteBtn);
-          gutter.appendChild(editBtn);
-          gutter.appendChild(linkBtn);
-          blockEl.appendChild(gutter);
-        } else {
-          const noteBtn = gutter.querySelector('button');
-          if (noteBtn) {
-            noteBtn.textContent = count > 0 ? `📝 ${count}` : '📝 Note';
-          }
-        }
-
-        // 3. Cyber-cyan left border and banner
-        let banner = blockEl.querySelector('.dr-attached-notes-banner');
-        if (count > 0) {
-          blockEl.style.borderLeft = '3.5px solid #00f2fe';
-          blockEl.style.paddingLeft = '14px';
-
-          const latest = notesList[notesList.length - 1];
-          const preview = latest.text.length > 60 ? latest.text.substring(0, 60) + '...' : latest.text;
-
-          if (!banner) {
-            banner = makeElement('div', {
-              className: 'dr-attached-notes-banner',
-              style: {
-                background: 'rgba(0, 242, 254, 0.08)',
-                border: '1px solid rgba(0, 242, 254, 0.25)',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                marginTop: '8px',
-                color: '#38bdf8',
-                fontSize: '11px',
-                fontFamily: 'system-ui, sans-serif',
-                cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              },
-              onclick: (e) => {
-                e.stopPropagation();
-                if (ItemNotes && typeof ItemNotes.openBlockNotesDialog === 'function') {
-                  const excerpt = blockEl.textContent.trim().substring(0, 120);
-                  ItemNotes.openBlockNotesDialog(pageId, blockId, { [blockId]: () => excerpt, name: dossierId }, () => {
-                    refreshDecorations();
-                  }, { options: { dossierId } });
-                }
-              }
-            }, [
-              makeElement('span', {}, `📝 ${count} Directive${count === 1 ? '' : 's'}: "${preview}"`),
-              makeElement('span', { style: { fontWeight: 'bold', color: '#00f2fe' } }, 'View & Dictate ➔')
-            ]);
-            blockEl.insertBefore(banner, gutter);
-          } else {
-            banner.firstChild.textContent = `📝 ${count} Directive${count === 1 ? '' : 's'}: "${preview}"`;
-          }
-        } else {
-          blockEl.style.borderLeft = '';
-          blockEl.style.paddingLeft = '';
-          if (banner) banner.remove();
-        }
-      });
-
-      // 4. Update or render bottom floating navigator dock
-      const activeNotes = allNotes.filter(n => n.status !== 'resolved');
-      DocumentReader._renderNotesNavigatorDockStatic(activeNotes, dossierId, pageId);
-    };
-
-    refreshDecorations();
-  }
-
+        refreshDecorations();
+      }
   static _renderNotesNavigatorDockStatic(activeNotes, dossierId, currentPageId) {
       let dock = document.getElementById('dr-notes-nav-dock');
 
@@ -2241,58 +2217,75 @@ static ${blockId}() {
   }
 
   _formatInlineTokens(text) {
-    if (!text) return document.createTextNode('');
-    const str = String(text);
-    const frag = document.createDocumentFragment();
+      if (!text) return document.createTextNode('');
+      const str = String(text);
+      const frag = document.createDocumentFragment();
 
-    // Tokenize for markdown links [text](url), inline code (`...`), bold (**...**), and italic (*...*)
-    const tokenRegex = /(\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
-    const parts = str.split(tokenRegex);
+      const resolveLinkHref = (rawHref) => {
+        if (!rawHref || rawHref.startsWith('http://') || rawHref.startsWith('https://') || rawHref.startsWith('#')) {
+          return rawHref;
+        }
+        if (rawHref.startsWith('../') && typeof window !== 'undefined' && window.location) {
+          const tail = rawHref.slice(3);
+          if (window.location.hostname.endsWith('.github.io')) {
+            const user = window.location.hostname.split('.')[0] || 'karmatics';
+            return `https://${user}.github.io/${tail}`;
+          }
+          if (window.location.protocol === 'about:') {
+            try {
+              const pHost = window.parent?.location?.hostname || '';
+              if (pHost.endsWith('.github.io')) {
+                return `https://${pHost.split('.')[0] || 'karmatics'}.github.io/${tail}`;
+              }
+              if (window.parent?.location?.origin && window.parent.location.origin !== 'null') {
+                return `${window.parent.location.origin}/${tail}`;
+              }
+            } catch (e) {}
+            return `https://karmatics.github.io/${tail}`;
+          }
+        }
+        return rawHref;
+      };
 
-    for (const part of parts) {
-      if (!part) continue;
+      const tokenRegex = /(\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+      const parts = str.split(tokenRegex);
 
-      // 1. Markdown Links: [Anchor Text](https://...)
-      if (part.startsWith('[') && part.includes('](') && part.endsWith(')')) {
-        const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
-        if (linkMatch) {
-          const a = makeElement('a', {
-            href: linkMatch[2],
-            target: '_blank',
-            rel: 'noopener noreferrer',
-            className: 'dr-inline-link',
-            style: {
-              color: 'var(--cad-cyan, #00f2fe)',
-              textDecoration: 'underline',
-              textUnderlineOffset: '3px',
-              fontWeight: '600'
-            }
-          }, linkMatch[1]);
-          frag.appendChild(a);
-          continue;
+      for (const part of parts) {
+        if (!part) continue;
+
+        if (part.startsWith('[') && part.includes('](') && part.endsWith(')')) {
+          const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+          if (linkMatch) {
+            const a = makeElement('a', {
+              href: resolveLinkHref(linkMatch[2]),
+              target: '_blank',
+              rel: 'noopener noreferrer',
+              className: 'dr-inline-link',
+              style: {
+                color: 'var(--cad-cyan, #00f2fe)',
+                textDecoration: 'underline',
+                textUnderlineOffset: '3px',
+                fontWeight: '600'
+              }
+            }, linkMatch[1]);
+            frag.appendChild(a);
+            continue;
+          }
+        }
+
+        if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+          frag.appendChild(makeElement('code', { className: 'dr-inline-code' }, part.slice(1, -1)));
+        } else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+          frag.appendChild(makeElement('strong', { className: 'dr-inline-strong' }, part.slice(2, -2)));
+        } else if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+          frag.appendChild(makeElement('em', { className: 'dr-inline-em' }, part.slice(1, -1)));
+        } else {
+          frag.appendChild(document.createTextNode(part));
         }
       }
 
-      // 2. Inline Code: `code`
-      if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
-        frag.appendChild(makeElement('code', { className: 'dr-inline-code' }, part.slice(1, -1)));
-      } 
-      // 3. Bold: **text**
-      else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-        frag.appendChild(makeElement('strong', { className: 'dr-inline-strong' }, part.slice(2, -2)));
-      } 
-      // 4. Italic: *text*
-      else if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
-        frag.appendChild(makeElement('em', { className: 'dr-inline-em' }, part.slice(1, -1)));
-      } 
-      // 5. Plain Text
-      else {
-        frag.appendChild(document.createTextNode(part));
-      }
+      return frag;
     }
-
-    return frag;
-  }
   openElementDiscussion(pageId, blockId, targetEl) {
     const dossierId = this.options?.dossierId || this.brandTitle || 'Dossier';
     const anchorThreadId = `thread_${dossierId}_${pageId}_${blockId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -2525,12 +2518,13 @@ static ${blockId}() {
     }
 
   get itemNotes() {
-    return this.options.itemNotesClass || 
-           globalThis.CommentsItemNotes || 
-           globalThis.DocumentItemNotes || 
-           globalThis.CadPlanItemNotes || 
-           null;
-  }
+      return this.options.itemNotes ||
+             this.options.itemNotesClass ||
+             globalThis.CadPlanItemNotes ||
+             globalThis.DocumentItemNotes ||
+             globalThis.CommentsItemNotes ||
+             null;
+    }
   get documentEditor() {
       return this.options.editorClass || globalThis.CadPlanDocumentEditor || globalThis.DocumentEditor || null;
     }
@@ -2912,108 +2906,83 @@ static ${blockId}() {
     }
 
   generatePageMarkdown(pageDef) {
-      if (!pageDef) return '';
-      const doc = pageDef.docClass ? pageDef.docClass() : null;
-      if (!doc) return '';
+    if (!pageDef) return '';
+    const doc = pageDef.docClass ? pageDef.docClass() : null;
+    if (!doc) return '';
 
-      const meta = doc.getMeta ? doc.getMeta() : { title: pageDef.title };
-      const manifest = doc.manifest ? doc.manifest() : [];
-      const lines = [];
+    const dossierId = this.options.dossierId || this.brandTitle;
+    const syncNotes = this._getSyncNotesForPage(dossierId, pageDef.id);
+    const emittedNoteIds = new Set();
+    const meta = doc.getMeta ? doc.getMeta() : { title: pageDef.title };
+    const manifest = doc.manifest ? doc.manifest() : [];
+    const lines = [`# ${meta.title || pageDef.title}`];
 
-      lines.push(`# ${meta.title || pageDef.title}`);
-      if (meta.kicker) lines.push(`*${meta.kicker}*`);
-      if (meta.subtitle) lines.push(`> *${meta.subtitle}*`);
-      lines.push('');
+    if (meta.kicker) lines.push(`*${meta.kicker}*`);
+    if (meta.subtitle) lines.push(`> *${meta.subtitle}*`);
+    lines.push('');
 
-      manifest.forEach((sec) => {
-        if (sec.title) {
-          lines.push(`## ${sec.title}`);
-          if (sec.partLabel) lines.push(`*${sec.partLabel}*`);
-          lines.push('');
-        }
-
-        (sec.blocks || []).forEach((b) => {
-          // 1. Check in-situ overrides
-          let blockText = null;
-          if (this.documentEditor) {
-            const ov = this.documentEditor.getOverride(pageDef.id, b.id, this.options.dossierId || this.brandTitle);
-            if (ov) blockText = Array.isArray(ov.text) ? ov.text.join('\n\n') : ov.text;
-          }
-
-          // 2. Component blocks
-          if (b.type === 'component') {
-            if (b.component === 'ParadigmsComparisonComponent') {
-              lines.push(`### Architectural Comparison Matrix: Shapiro vs. Mostaque vs. Brown`);
-              lines.push(`| Dimension | David Shapiro (PLE) | Emad Mostaque (UBAI) | Rob Brown (Robot Dividend) |`);
-              lines.push(`|---|---|---|---|`);
-              lines.push(`| 1. Wealth Grounding | Capital equity & leverage titles | Compute utility cycles & open weights | Physical consumable output & energy |`);
-              lines.push(`| 2. Tax Solution | Capital returns & resource funds | Compute vouchers replace cash UBI | Dual-Pillar VAT + corporate cash-flow levy + LVT |`);
-              lines.push(`| 3. Strategic Leverage | Rentier state veto & strike threat | Decentralized open-source weights | Realization Trap: domestic capital needs solvent buyers |`);
-              lines.push(`| 4. Human Agency | Stakeholder portfolio manager | Daily compute prompt-hustling | Unconditional physical freedom & voluntary vocation |`);
-              lines.push(`| 5. Systemic Failure Mode | Financialization & phantom leverage | Caloric disconnect (cannot eat FLOPs) | Attribution lag bounded by Corridor [T_min, T_max] |`);
-              lines.push('');
-              return;
-            } else if (b.component === 'DoomerDebateComponent') {
-              lines.push(`### The Escalation Ladder & Real-World Quora Debate`);
-              lines.push(`1. **The Scarcity Reflex:** Machines produce the grain; starving beside silos is an accounting refusal, not physical scarcity.`);
-              lines.push(`2. **The 50-Year Wage Argument:** An employed electorate votes on income tax; an automated electorate facing 25% displacement votes to distribute the machine harvest.`);
-              lines.push(`3. **The Tyranny Fantasy:** Oligarchs do not enforce laws. Soldiers and police have families facing the exact same replacement.`);
-              lines.push(`4. **The Competitive Trap:** Firms automate to survive, but capital collectively collapses without solvent consumers.`);
-              lines.push(`5. **The Status Fallacy:** Wealth is a human status game. Ruling an empty wasteland surrounded by androids is solitary confinement.`);
-              lines.push('');
-              return;
-            } else if (b.component === 'TaxChartComponent') {
-              lines.push(`### Democratic Tax Curve & Citizen Dividend Simulator`);
-              lines.push(`- **Total Collection Rate (Dial T):** Balances public dividend size with capital reinvestment and infrastructure upkeep.`);
-              lines.push(`- **Progressivity Index (Dial P):** Above 30%, generates automatic negative income tax credits for lower brackets.`);
-              lines.push(`- **Marginal Return Guarantee:** Effective marginal rates remain well below 100%, preserving positive incentive for specialized voluntary craft.`);
-              lines.push('');
-              return;
-            }
-          }
-
-          // 3. Markdown box
-          if (b.type === 'markdown-box' && typeof doc.getMasterMarkdown === 'function') {
-            lines.push(doc.getMasterMarkdown());
-            lines.push('');
-            return;
-          }
-
-          // 4. Resolve block content
-          if (!blockText) {
-            const htmlContent = this.resolveHtmlBlockContent(pageDef.id, b.id);
-            if (htmlContent) {
-              blockText = this._htmlToMarkdown(htmlContent);
-            } else if (typeof doc[b.id] === 'function') {
-              const rawVal = doc[b.id]();
-              const arr = Array.isArray(rawVal) ? rawVal : [rawVal];
-              blockText = arr.map(item => this._htmlToMarkdown(item)).join('\n\n');
-            }
-          }
-
-          if (!blockText) return;
-
-          if (b.type === 'quote') {
-            lines.push(`> "${blockText.trim()}"`);
-            lines.push('');
-          } else if (b.type === 'sidebar') {
-            const title = b.title || 'Note';
-            const kicker = b.kicker ? `${b.kicker}: ` : '';
-            lines.push(`> **${kicker}${title}**`);
-            lines.push(`>`);
-            const indented = blockText.trim().split('\n').map(l => `> ${l}`).join('\n');
-            lines.push(indented);
-            lines.push('');
-          } else {
-            lines.push(blockText.trim());
-            lines.push('');
-          }
-        });
+    const appendBlockNotes = (blockId) => {
+      const blockNotes = syncNotes.byBlock[blockId];
+      if (!blockNotes || blockNotes.length === 0) return;
+      lines.push(`> **📝 Author Note(s) on \`${blockId}\`:**`);
+      blockNotes.forEach(n => {
+        emittedNoteIds.add(n.id);
+        lines.push(`> - ${this._formatNoteLine(n)}`);
       });
+      lines.push('');
+    };
 
-      return lines.join('\n');
+    manifest.forEach((sec) => {
+      if (sec.title) {
+        lines.push(`## ${sec.title}`);
+        if (sec.partLabel) lines.push(`*${sec.partLabel}*`);
+        lines.push('');
+      }
+      (sec.blocks || []).forEach((b) => {
+        if (b.sensitive && typeof SensitiveContextGate !== 'undefined' && !SensitiveContextGate.isUnlocked()) {
+          lines.push(`> 🔒 **[${b.sensitiveLabel || 'Protected Family / POA Context'} — Locked]** (Unlock in app to include details)`, '');
+          appendBlockNotes(b.id);
+          return;
+        }
+        let blockText = null;
+        if (this.documentEditor) {
+          const ov = this.documentEditor.getOverride(pageDef.id, b.id, dossierId);
+          if (ov) blockText = Array.isArray(ov.text) ? ov.text.join('\n\n') : ov.text;
+        }
+        if (b.type === 'component') {
+          const compMd = this._componentMarkdown(b.component);
+          if (compMd) lines.push(compMd, '');
+          appendBlockNotes(b.id);
+          return;
+        }
+        if (!blockText) {
+          const htmlContent = this.resolveHtmlBlockContent(pageDef.id, b.id);
+          if (htmlContent) blockText = this._htmlToMarkdown(htmlContent);
+          else if (typeof doc[b.id] === 'function') {
+            const rawVal = doc[b.id]();
+            blockText = (Array.isArray(rawVal) ? rawVal : [rawVal]).map(item => this._htmlToMarkdown(item)).join('\n\n');
+          }
+        }
+        if (blockText) {
+          if (b.type === 'quote') lines.push(`> "${blockText.trim()}"`, '');
+          else if (b.type === 'sidebar') lines.push(`> **${b.kicker ? b.kicker + ': ' : ''}${b.title || 'Note'}**`, '>', ...blockText.trim().split('\n').map(l => `> ${l}`), '');
+          else lines.push(blockText.trim(), '');
+        }
+        appendBlockNotes(b.id);
+      });
+    });
+
+    const unemitted = syncNotes.all.filter(n => !emittedNoteIds.has(n.id));
+    if (unemitted.length > 0) {
+      lines.push('### 📝 Additional In-Situ Element Notes');
+      unemitted.forEach(n => {
+        lines.push(`- **Target \`${n.blockId}\`**${n.xpath ? ` (\`${n.xpath}\`)` : ''}: ${n.text}`);
+        if (n.blockPreview) lines.push(`  > ${n.blockPreview.replace(/\n+/g, ' ').trim()}`);
+      });
+      lines.push('');
     }
-
+    return lines.join('\n');
+  }
   generateFullMarkdown() {
       const chapters = [];
       this.pages.forEach((pageDef) => {
@@ -3024,6 +2993,376 @@ static ${blockId}() {
       });
       return chapters.join('\n\n---\n\n');
     }
+
+  _getSyncNotesForPage(dossierId, pageId) {
+      const res = { byBlock: {}, all: [] };
+      const ItemNotes = this.itemNotes || globalThis.DocumentItemNotes || globalThis.CadPlanItemNotes;
+      if (!ItemNotes || typeof ItemNotes.getLocalMap !== 'function') return res;
+
+      const map = ItemNotes.getLocalMap();
+      Object.values(map).forEach(arr => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(n => {
+          if (!n || n.status === 'resolved') return;
+          if (dossierId && n.dossierId && n.dossierId !== dossierId) return;
+          if (pageId && n.pageId !== pageId) return;
+          res.all.push(n);
+          const key = n.enclosingBlockId || n.blockId;
+          res.byBlock[key] = res.byBlock[key] || [];
+          res.byBlock[key].push(n);
+        });
+      });
+      return res;
+    }
+
+  static exportContainerMarkdown(container, options = {}) {
+        if (!container) return '';
+        const dossierId = options.dossierId || 'Dossier';
+        const pageId = options.pageId || 'main';
+        const title = options.title || `${dossierId} (${pageId})`;
+
+        const ItemNotes = options.itemNotesClass || globalThis.DocumentItemNotes || globalThis.CadPlanItemNotes;
+        const notesByBlock = {};
+        const allPageNotes = [];
+        if (ItemNotes && typeof ItemNotes.getLocalMap === 'function') {
+          const map = ItemNotes.getLocalMap();
+          Object.values(map).forEach(arr => {
+            if (!Array.isArray(arr)) return;
+            arr.forEach(n => {
+              if (!n || n.status === 'resolved') return;
+              if (n.dossierId && n.dossierId !== dossierId) return;
+              if (n.pageId && n.pageId !== pageId) return;
+              allPageNotes.push(n);
+              const k = n.enclosingBlockId || n.blockId;
+              notesByBlock[k] = notesByBlock[k] || [];
+              notesByBlock[k].push(n);
+            });
+          });
+        }
+
+        const emittedNoteIds = new Set();
+        const lines = [`# ${title}`, ''];
+
+        const extractCleanText = (el) => {
+          const clone = el.cloneNode(true);
+          clone.querySelectorAll('.dr-universal-gutter, .dr-attached-notes-banner, .dr-xpath-note-pill, [data-style-exclude]').forEach(n => n.remove());
+          return (clone.textContent || '').replace(/\s+/g, ' ').trim();
+        };
+
+        const blocks = container.querySelectorAll('[data-block-id]');
+        if (blocks.length > 0) {
+          blocks.forEach(b => {
+            const blockId = b.getAttribute('data-block-id');
+            const heading = b.querySelector('h1, h2, h3, h4, strong');
+            const txt = extractCleanText(b);
+            if (txt) {
+              if (heading) {
+                const hText = extractCleanText(heading);
+                lines.push(`## ${hText}`);
+                const body = txt.startsWith(hText) ? txt.slice(hText.length).trim() : txt;
+                if (body) lines.push(body);
+              } else {
+                lines.push(txt);
+              }
+              lines.push('');
+            }
+
+            const attached = notesByBlock[blockId];
+            if (attached && attached.length > 0) {
+              lines.push(`> **📝 Author Note(s) on \`${blockId}\`:**`);
+              attached.forEach(n => {
+                emittedNoteIds.add(n.id);
+                lines.push(`> - ${n.text}`);
+              });
+              lines.push('');
+            }
+          });
+        } else {
+          container.querySelectorAll('h1, h2, h3, h4, p, blockquote, li').forEach(el => {
+            if (el.closest('.dr-universal-gutter, .dr-attached-notes-banner, [data-style-exclude]')) return;
+            const txt = extractCleanText(el);
+            if (!txt) return;
+            const tag = el.tagName.toLowerCase();
+            if (tag === 'h1') lines.push(`# ${txt}`, '');
+            else if (tag === 'h2') lines.push(`## ${txt}`, '');
+            else if (tag === 'h3' || tag === 'h4') lines.push(`### ${txt}`, '');
+            else if (tag === 'blockquote') lines.push(`> ${txt}`, '');
+            else if (tag === 'li') lines.push(`- ${txt}`);
+            else lines.push(txt, '');
+          });
+        }
+
+        const remaining = allPageNotes.filter(n => !emittedNoteIds.has(n.id));
+        if (remaining.length > 0) {
+          lines.push(`## 📝 Additional In-Situ Element Notes (${remaining.length})`, '');
+          remaining.forEach(n => {
+            lines.push(`- **Target \`${n.blockId}\`**${n.xpath ? ` (\`${n.xpath}\`)` : ''}: ${n.text}`);
+            if (n.blockPreview) {
+              lines.push(`  > ${n.blockPreview.replace(/\n+/g, ' ').trim()}`);
+            }
+          });
+          lines.push('');
+        }
+
+        return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+      }
+
+  static openContainerExportDialog(container, options = {}) {
+        const md = DocumentReader.exportContainerMarkdown(container, options);
+        const dossierId = options.dossierId || 'Dossier';
+        const pageId = options.pageId || 'main';
+
+        const wrap = makeElement('div', {
+          style: {
+            display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px',
+            color: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif'
+          }
+        });
+
+        const info = makeElement('div', {
+          style: { fontSize: '12px', color: '#94a3b8' }
+        }, `Includes active in-situ text edits and all attached Living Directives / notes for [${dossierId}/${pageId}].`);
+
+        const textarea = makeElement('textarea', {
+          spellcheck: 'false',
+          style: {
+            width: '100%', height: '380px', background: '#070a13', color: '#e2e8f0',
+            border: '1.5px solid #1e293b', borderRadius: '8px', padding: '12px',
+            fontFamily: 'ui-monospace, monospace', fontSize: '11.5px', lineHeight: '1.55',
+            resize: 'vertical', outline: 'none', boxSizing: 'border-box'
+          }
+        });
+        textarea.value = md;
+
+        const copyBtn = makeElement('button', {
+          className: 'dr-nav-btn primary',
+          style: { padding: '7px 16px', fontSize: '12px', fontWeight: 'bold' },
+          onclick: () => {
+            navigator.clipboard.writeText(textarea.value).then(() => {
+              copyBtn.textContent = '✓ Copied Markdown + Notes!';
+              setTimeout(() => { copyBtn.textContent = '📋 Copy Markdown + Notes'; }, 1800);
+            });
+          }
+        }, '📋 Copy Markdown + Notes');
+
+        const dlBtn = makeElement('button', {
+          className: 'dr-nav-btn',
+          style: { padding: '7px 14px', fontSize: '12px', color: '#00f2fe', borderColor: '#00f2fe66' },
+          onclick: () => {
+            const blob = new Blob([textarea.value], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${dossierId}_${pageId}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+        }, '💾 Download .md');
+
+        const footer = makeElement('div', {
+          style: { display: 'flex', justifyContent: 'flex-end', gap: '8px' }
+        }, [dlBtn, copyBtn]);
+
+        wrap.append(info, textarea, footer);
+
+        if (typeof UITools !== 'undefined' && typeof UITools.makeDialog === 'function') {
+          return UITools.makeDialog({
+            title: `📤 Export Markdown + Notes [${dossierId}/${pageId}]`,
+            size: [720, 520],
+            position: [Math.max(16, Math.floor((window.innerWidth - 720) / 2)), 50],
+            contentElement: wrap,
+            appendTo: document.body
+          });
+        }
+        navigator.clipboard?.writeText(md);
+        return null;
+      }
+
+  _buildBlockHoverPill(blockId, wrapper, doc, includeEdit = true, overrideText = null) {
+    const ItemNotes = this.itemNotes;
+    const DocEditor = this.documentEditor;
+    const pill = makeElement('div', { className: 'dr-hover-action-pill' });
+
+    if (overrideText) {
+      pill.appendChild(makeElement('span', { style: { fontSize: '9px', color: '#f59e0b', fontWeight: 'bold', marginRight: '4px' } }, 'Edited'));
+    }
+
+    pill.appendChild(makeElement('button', {
+      className: 'dr-pill-btn dr-gutter-note-btn', id: `btn-note-${blockId}`,
+      title: 'Attach Author Note / Living Directive',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (ItemNotes) ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => { this._updateBlockNoteBadges(); this._populateSidePanelNotes(); }, this, { defaultTab: 'note', targetElement: wrapper });
+      }
+    }, '📝 Note'));
+
+    pill.appendChild(makeElement('button', {
+      className: 'dr-pill-btn', title: 'Open In-Situ Discussion Thread',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (ItemNotes) ItemNotes.openBlockNotesDialog(this.currentPageId, blockId, doc, () => { this._updateBlockNoteBadges(); this._populateSidePanelNotes(); }, this, { defaultTab: 'thread', targetElement: wrapper });
+        else this.openElementDiscussion(this.currentPageId, blockId, wrapper);
+      }
+    }, '💬 Discuss'));
+
+    if (includeEdit) {
+      pill.appendChild(makeElement('button', {
+        className: 'dr-pill-btn', title: 'Edit In-Situ [Double-Click]',
+        onclick: (e) => { e.stopPropagation(); if (DocEditor) DocEditor.openBlockEditor(this.currentPageId, blockId, doc, () => this.renderCurrentDocument(), this); }
+      }, '✎ Edit'));
+    }
+
+    pill.appendChild(makeElement('button', {
+      className: 'dr-pill-btn', title: 'Copy direct anchor link',
+      onclick: (e) => { e.stopPropagation(); this.copyAnchorLink(this.currentPageId, blockId, e.currentTarget); }
+    }, '🔗'));
+
+    return pill;
+  }
+
+  _getSummariesClass() {
+    if (this.options.summariesClass) return this.options.summariesClass;
+    const dId = this.options.dossierId || '';
+    if (dId === 'Opus' && globalThis.OpusSummaries) return globalThis.OpusSummaries;
+    if (dId === 'HomeSetup' && globalThis.HomeSummaries) return globalThis.HomeSummaries;
+    return globalThis[`${dId}Summaries`] || null;
+  }
+
+  _renderChapterSummaryCard() {
+    const sumCls = this._getSummariesClass();
+    const summary = sumCls && typeof sumCls.get === 'function' ? sumCls.get(this.currentPageId) : null;
+    if (!summary) return null;
+
+    return makeElement('div', {
+      className: 'dr-chapter-summary-card',
+      'data-block-id': `summary_${this.currentPageId}`,
+      style: {
+        margin: '0 0 28px 0',
+        padding: '14px 18px',
+        background: 'rgba(0, 242, 254, 0.05)',
+        border: '1px solid rgba(0, 242, 254, 0.28)',
+        borderLeft: '4px solid #00f2fe',
+        borderRadius: '0 10px 10px 0',
+        fontFamily: 'var(--dr-font-sans)'
+      }
+    }, [
+      makeElement('div', { style: { fontSize: '0.7rem', fontWeight: '800', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#00f2fe', marginBottom: '6px' } }, '🧭 At a Glance & What Follows'),
+      makeElement('p', { style: { margin: '0 0 6px 0', fontSize: '0.92rem', lineHeight: '1.55', color: 'var(--dr-text)' } }, summary.tldr),
+      summary.whatsNext ? makeElement('p', { style: { margin: '0', fontSize: '0.84rem', lineHeight: '1.45', color: 'var(--dr-text-subtle)', fontStyle: 'italic' } }, `Next: ${summary.whatsNext}`) : null
+    ]);
+  }
+
+  _formatNoteLine(n) {
+    const ts = n.timestamp ? new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const sub = (n.enclosingBlockId && n.blockId !== n.enclosingBlockId) ? ` on \`<${n.tagName || 'el'}>\`` : '';
+    const excerpt = n.blockPreview ? ` [excerpt: "${n.blockPreview.replace(/\s+/g, ' ').trim().slice(0, 90)}"]` : '';
+    return `${ts ? `(${ts}${sub}) ` : ''}${n.text}${excerpt}`;
+  }
+
+  _componentMarkdown(componentName) {
+    const map = {
+      OpusEconomicImpactComponent: '### Public Google Search Verification & Economic Attribution\n- Unprimed Google Search attributes $1.2B to $5.54B+ of Bentley Systems market cap to Rob Brown (US Patent #5,754,182).',
+      OpusRouterComponent: '### Interactive 4-Quadrant Tiered Knowledge Router\n- Catalogs 11 interconnected projects across Quadrants I–IV with Tier 0–3 context depth.',
+      OpusConvergenceStepperLab: '### 4-Turn Blind Query Sifting Stepper\n- Tracks AI convergence from surface PR noise (Cortesi/Ray/Barry) to Rob Brown (Turn 4).',
+      HomeFleetVisualizer: '### Interactive Fleet Topology Map\n- Mac Mini (`10.0.0.226:8080`) ↔ Ubuntu (`10.0.0.245:8080`) ↔ Windows Rig ↔ Mobile Nodes ↔ GitHub Pages & Supabase.',
+      HomeHandoffComponent: '### Master Opus Router & Fleet Git Synchronizer\n- Provides 1-tap Fleet Git Sync, remote node probe, and fresh-thread handoff dispatch.',
+      HomeDictationStudioComponent: '### Universal Speech & Dictation Studio\n- Live testbed for `DictationWidget.attach()`, 26-section `DictationDocs`, and sub-apps.'
+    };
+    return map[componentName] || '';
+  }
+
+  generateNotesBundleMarkdown() {
+    const dossierId = this.options.dossierId || this.brandTitle;
+    const lines = [`# 📝 Attached Notes & Document References — ${dossierId}`, ''];
+    const isLocked = typeof SensitiveContextGate !== 'undefined' && !SensitiveContextGate.isUnlocked();
+    let totalCount = 0;
+
+    this.pages.forEach((pageDef) => {
+      const syncNotes = this._getSyncNotesForPage(dossierId, pageDef.id);
+      if (!syncNotes.all.length) return;
+
+      const doc = pageDef.docClass ? pageDef.docClass() : null;
+      const manifest = doc?.manifest ? doc.manifest() : [];
+      const blockToSec = {};
+      const sensitiveBlocks = new Set();
+      manifest.forEach(sec => (sec.blocks || []).forEach(b => {
+        blockToSec[b.id] = sec.title || sec.section || '';
+        if (b.sensitive) sensitiveBlocks.add(b.id);
+      }));
+
+      lines.push(`## Chapter: ${pageDef.title} (\`${pageDef.id}\`)`);
+      syncNotes.all.forEach((n, idx) => {
+        totalCount++;
+        const refBlock = n.enclosingBlockId || n.blockId;
+        const secName = blockToSec[refBlock] || 'Page Element';
+        const hideExcerpt = isLocked && sensitiveBlocks.has(refBlock);
+        lines.push(`${idx + 1}. **Section:** *${secName}* • **Block:** \`${refBlock}\`${n.blockId !== refBlock ? ` → \`<${n.tagName || 'el'}>\`` : ''}`);
+        if (n.xpath) lines.push(`   - **XPath:** \`${n.xpath}\``);
+        if (n.blockPreview && !hideExcerpt) lines.push(`   - **Referenced Text:** > ${n.blockPreview.replace(/\s+/g, ' ').trim().slice(0, 180)}`);
+        else if (hideExcerpt) lines.push(`   - **Referenced Text:** > [Protected Context — Locked]`);
+        lines.push(`   - **Note:** ${n.text}`);
+      });
+      lines.push('');
+    });
+
+    if (totalCount === 0) return `# No active notes attached in ${dossierId}.`;
+    return lines.join('\n').trim();
+  }
+  copyNotesBundle(btnEl = null) {
+    const md = this.generateNotesBundleMarkdown();
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(md).then(() => {
+        if (btnEl) {
+          const orig = btnEl.textContent;
+          btnEl.textContent = '✓ Notes Copied!';
+          setTimeout(() => { btnEl.textContent = orig; }, 1800);
+        } else {
+          alert('✓ Copied all notes + document references to clipboard!');
+        }
+      });
+    } else {
+      prompt('Copy notes markdown:', md);
+    }
+  }
+
+  static copyContainerNotesBundle(options = {}, btnEl = null) {
+    const dossierId = options.dossierId || 'Dossier';
+    const ItemNotes = options.itemNotesClass || globalThis.DocumentItemNotes || globalThis.CadPlanItemNotes;
+    const map = (ItemNotes && typeof ItemNotes.getLocalMap === 'function') ? ItemNotes.getLocalMap() : {};
+    const notes = [];
+
+    Object.values(map).forEach(arr => {
+      if (!Array.isArray(arr)) return;
+      arr.forEach(n => {
+        if (!n || n.status === 'resolved') return;
+        if (n.dossierId && n.dossierId !== dossierId) return;
+        notes.push(n);
+      });
+    });
+
+    const md = notes.length === 0
+      ? `# No active notes attached in ${dossierId}.`
+      : [`# 📝 Attached Notes & References — ${dossierId}`, ''].concat(
+          notes.map((n, i) => {
+            const loc = n.enclosingBlockId ? `${n.enclosingBlockId} → <${n.tagName || 'el'}>` : n.blockId;
+            const excerpt = n.blockPreview ? `\n   - **Excerpt:** > ${n.blockPreview.replace(/\s+/g, ' ').trim().slice(0, 160)}` : '';
+            return `${i + 1}. **Page:** \`${n.pageId}\` • **Target:** \`${loc}\`${n.xpath ? ` (\`${n.xpath}\`)` : ''}${excerpt}\n   - **Note:** ${n.text}`;
+          })
+        ).join('\n');
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(md).then(() => {
+        if (btnEl) {
+          const orig = btnEl.textContent;
+          btnEl.textContent = '✓ Notes Copied!';
+          setTimeout(() => { btnEl.textContent = orig; }, 1800);
+        }
+      });
+    }
+    return md;
+  }
 }
 
 globalThis.DocumentReader = DocumentReader;
