@@ -2216,13 +2216,18 @@ static ${blockId}() {
       return container;
   }
 
-  _formatInlineTokens(text) {
+  _formatInlineTokens(text, depth = 0) {
       if (!text) return document.createTextNode('');
       const str = String(text);
       const frag = document.createDocumentFragment();
+      if (depth > 4) {
+        frag.appendChild(document.createTextNode(str));
+        return frag;
+      }
 
       const resolveLinkHref = (rawHref) => {
-        if (!rawHref || rawHref.startsWith('http://') || rawHref.startsWith('https://') || rawHref.startsWith('#')) {
+        if (!rawHref) return '#';
+        if (rawHref.startsWith('http://') || rawHref.startsWith('https://') || rawHref.startsWith('#')) {
           return rawHref;
         }
         if (rawHref.startsWith('../') && typeof window !== 'undefined' && window.location) {
@@ -2247,7 +2252,7 @@ static ${blockId}() {
         return rawHref;
       };
 
-      const tokenRegex = /(\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+      const tokenRegex = /(\[[^\]]+\]\([^)]+\)|`[^`]+`|https?:\/\/[^\s)<>"'][^\s)<>"'.,;!?]*|\*\*[^*]+\*\*|\*[^*]+\*)/g;
       const parts = str.split(tokenRegex);
 
       for (const part of parts) {
@@ -2267,18 +2272,51 @@ static ${blockId}() {
                 textUnderlineOffset: '3px',
                 fontWeight: '600'
               }
-            }, linkMatch[1]);
+            });
+            a.appendChild(this._formatInlineTokens(linkMatch[1], depth + 1));
             frag.appendChild(a);
             continue;
           }
         }
 
-        if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
-          frag.appendChild(makeElement('code', { className: 'dr-inline-code' }, part.slice(1, -1)));
+        if (/^https?:\/\//.test(part)) {
+          frag.appendChild(makeElement('a', {
+            href: part,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            className: 'dr-inline-link',
+            style: {
+              color: 'var(--cad-cyan, #00f2fe)',
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px'
+            }
+          }, part));
+        } else if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+          const innerCode = part.slice(1, -1);
+          if (/^(?:\.\.\/|https?:\/\/)/.test(innerCode)) {
+            frag.appendChild(makeElement('a', {
+              href: resolveLinkHref(innerCode),
+              target: '_blank',
+              rel: 'noopener noreferrer',
+              className: 'dr-inline-link',
+              style: {
+                color: 'var(--cad-cyan, #00f2fe)',
+                fontFamily: 'var(--dr-font-mono)',
+                fontSize: '0.9em',
+                textDecoration: 'underline'
+              }
+            }, innerCode));
+          } else {
+            frag.appendChild(makeElement('code', { className: 'dr-inline-code' }, innerCode));
+          }
         } else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-          frag.appendChild(makeElement('strong', { className: 'dr-inline-strong' }, part.slice(2, -2)));
+          const strongEl = makeElement('strong', { className: 'dr-inline-strong' });
+          strongEl.appendChild(this._formatInlineTokens(part.slice(2, -2), depth + 1));
+          frag.appendChild(strongEl);
         } else if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
-          frag.appendChild(makeElement('em', { className: 'dr-inline-em' }, part.slice(1, -1)));
+          const emEl = makeElement('em', { className: 'dr-inline-em' });
+          emEl.appendChild(this._formatInlineTokens(part.slice(1, -1), depth + 1));
+          frag.appendChild(emEl);
         } else {
           frag.appendChild(document.createTextNode(part));
         }
