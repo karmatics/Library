@@ -28,57 +28,55 @@ class SensitiveContextGate {
   }
 
   static renderLockedBlock(blockDef, onUnlock) {
-      const label = blockDef.sensitiveLabel || 'Sensitive Family Context';
-      const card = makeElement('div', {
-        className: 'dr-block-wrapper dr-sensitive-locked-card',
-        id: `block-${blockDef.id}`,
-        'data-block-id': blockDef.id,
-        'data-block': blockDef.id,
-        style: {
-          margin: '18px 0', padding: '14px 18px', borderRadius: '8px',
-          background: 'rgba(15, 23, 42, 0.72)', border: '1px dashed rgba(148, 163, 184, 0.45)',
-          borderLeft: '4px solid #64748b', fontFamily: 'var(--dr-font-sans, system-ui)'
-        }
-      });
+        const label = blockDef.sensitiveLabel || 'Additional Personal & Family Context';
+        const summary = blockDef.sensitiveSummary || 'This section is hidden in default view so primary engineering, economic, and current stability topics remain clear. Enter the optional access code to view.';
+        const card = makeElement('div', {
+          className: 'dr-block-wrapper dr-sensitive-locked-card',
+          id: `block-${blockDef.id}`,
+          'data-block-id': blockDef.id,
+          'data-block': blockDef.id,
+          style: {
+            margin: '18px 0', padding: '14px 18px', borderRadius: '8px',
+            background: 'rgba(15, 23, 42, 0.72)', border: '1px dashed rgba(148, 163, 184, 0.45)',
+            borderLeft: '4px solid #64748b', fontFamily: 'var(--dr-font-sans, system-ui)'
+          }
+        });
 
-      const input = makeElement('input', {
-        type: 'password',
-        placeholder: 'Enter access code...',
-        style: {
-          background: '#070a13', color: '#f8fafc', border: '1px solid #334155',
-          borderRadius: '6px', padding: '5px 10px', fontSize: '12px', width: '170px', outline: 'none'
-        }
-      });
+        const input = makeElement('input', {
+          type: 'password',
+          placeholder: 'Enter access code...',
+          style: {
+            background: '#070a13', color: '#f8fafc', border: '1px solid #334155',
+            borderRadius: '6px', padding: '5px 10px', fontSize: '12px', width: '170px', outline: 'none'
+          }
+        });
 
-      const errMsg = makeElement('span', { style: { fontSize: '11px', color: '#f87171', display: 'none' } }, 'Incorrect code.');
+        const errMsg = makeElement('span', { style: { fontSize: '11px', color: '#f87171', display: 'none' } }, 'Incorrect code.');
 
-      const attempt = () => {
-        if (this.unlockWithCode(input.value)) {
-          if (typeof onUnlock === 'function') onUnlock();
-        } else {
-          errMsg.style.display = 'inline';
-          input.focus();
-        }
-      };
+        const attempt = () => {
+          if (this.unlockWithCode(input.value)) {
+            if (typeof onUnlock === 'function') onUnlock();
+          } else {
+            errMsg.style.display = 'inline';
+            input.focus();
+          }
+        };
 
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') attempt(); });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') attempt(); });
 
-      const btn = makeElement('button', {
-        className: 'dr-nav-btn',
-        style: { padding: '5px 12px', fontSize: '11.5px', fontWeight: '700', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.45)' },
-        onclick: (e) => { e.stopPropagation(); attempt(); }
-      }, '🔓 Unlock');
+        const btn = makeElement('button', {
+          className: 'dr-nav-btn',
+          style: { padding: '5px 12px', fontSize: '11.5px', fontWeight: '700', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.45)' },
+          onclick: (e) => { e.stopPropagation(); attempt(); }
+        }, '🔓 Unlock');
 
-      card.append(
-        makeElement('div', { style: { fontSize: '12px', fontWeight: '800', color: '#cbd5e1', marginBottom: '4px' } }, `🔒 ${label} (Protected by Default)`),
-        makeElement('p', { style: { margin: '0 0 10px 0', fontSize: '12px', color: '#94a3b8', lineHeight: '1.5' } },
-          'Contains sensitive family context kept hidden in default view so primary engineering, economic, and personal status topics remain front and center.'
-        ),
-        makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } }, [input, btn, errMsg])
-      );
-      return card;
-    }
-
+        card.append(
+          makeElement('div', { style: { fontSize: '12px', fontWeight: '800', color: '#cbd5e1', marginBottom: '4px' } }, `🔒 ${label} (Hidden by Default)`),
+          makeElement('p', { style: { margin: '0 0 10px 0', fontSize: '12px', color: '#94a3b8', lineHeight: '1.5' } }, summary),
+          makeElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } }, [input, btn, errMsg])
+        );
+        return card;
+      }
   static syncToolbarButton(reader) {
       if (!reader || !reader.navBar) return;
       const rightGroup = reader.navBar.lastElementChild;
